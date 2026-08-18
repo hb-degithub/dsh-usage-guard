@@ -13,10 +13,12 @@ const emptyData = () => ({
   version: STORE_VERSION,
   days: {},
   sessions: {},
-  config: {
-    prices: { ...DEFAULT_PRICES },
-    guard: { dailyTokens: null, dailyCost: null, mode: 'warn' },
-  },
+  config: defaultConfig(),
+});
+
+const defaultConfig = () => ({
+  prices: structuredClone(DEFAULT_PRICES),
+  guard: { dailyTokens: null, dailyCost: null, mode: 'warn' },
 });
 
 const isFiniteNonNegative = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
@@ -54,18 +56,29 @@ export class Store {
     } catch {
       return; // 首次运行：文件不存在
     }
+    let parsed;
     try {
-      const parsed = JSON.parse(raw);
+      parsed = JSON.parse(raw);
       if (parsed?.version !== STORE_VERSION || typeof parsed.days !== 'object' || typeof parsed.sessions !== 'object' || typeof parsed.config !== 'object') {
         throw new Error('unrecognized store shape');
       }
-      validateConfig(parsed.config);
-      this.data = parsed;
     } catch {
       copyFileSync(this.path, `${this.path}.corrupt-${Date.now()}`);
       this.data = emptyData();
+      this.dirty = false;
+      return;
     }
-    this.dirty = false;
+    // 形状正确但 config 非法（多为手改配置）：仅替换 config 为默认值，保留历史数据，不备份、不抛错；
+    // 标记 dirty，让下一次 flush 把修复后的文件落盘
+    let repaired = false;
+    try {
+      validateConfig(parsed.config);
+    } catch {
+      parsed.config = defaultConfig();
+      repaired = true;
+    }
+    this.data = parsed;
+    this.dirty = repaired;
   }
 
   recordDelta(sessionId, delta, foldState) {

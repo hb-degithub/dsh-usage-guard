@@ -59,6 +59,34 @@ describe('Store', () => {
     expect(readdirSync(dir).some((f) => f.startsWith('usage-stats.json.corrupt-'))).toBe(true);
   });
 
+  it('repairs invalid config in a valid-shape file without losing history or backing up', () => {
+    const good = {
+      version: 1,
+      days: { '2026-08-17|zijian|kimi-k3': { input: 10, output: 5, cacheRead: 1, cacheWrite: 0, requests: 1 } },
+      sessions: { 'session-a': initFold() },
+      config: { prices: structuredClone(DEFAULT_PRICES), guard: { dailyTokens: null, dailyCost: null, mode: 'bogus' } },
+    };
+    writeFileSync(path, JSON.stringify(good), 'utf8');
+    const s = new Store(path);
+    expect(() => s.load()).not.toThrow();
+    expect(s.data.days).toEqual(good.days); // 历史保留
+    expect(s.data.sessions).toEqual(good.sessions); // 折叠水位保留
+    expect(s.data.config.guard.mode).toBe('warn'); // config 重置为默认
+    expect(s.data.config.prices).toEqual(DEFAULT_PRICES);
+    expect(readdirSync(dir).some((f) => f.startsWith('usage-stats.json.corrupt-'))).toBe(false); // 不备份
+    s.flush(); // 修复结果落盘
+    const raw = JSON.parse(readFileSync(path, 'utf8'));
+    expect(raw.config.guard.mode).toBe('warn');
+    expect(raw.days).toEqual(good.days);
+  });
+
+  it('does not share nested price objects with DEFAULT_PRICES', () => {
+    const before = DEFAULT_PRICES['deepseek/deepseek-chat'].input;
+    const s = new Store(path); s.load();
+    s.data.config.prices['deepseek/deepseek-chat'].input = 9999;
+    expect(DEFAULT_PRICES['deepseek/deepseek-chat'].input).toBe(before);
+  });
+
   it('setConfig validates and replaces', () => {
     const s = new Store(path); s.load();
     expect(() => s.setConfig({ prices: {}, guard: { dailyTokens: -1, dailyCost: null, mode: 'warn' } })).toThrow();
