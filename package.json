@@ -1,0 +1,39 @@
+{
+  "name": "dsh-usage-stats",
+  "version": "0.1.0",
+  "description": "DSH 用量统计插件：token 采集、日历视图、费用估算、超限守卫",
+  "type": "module",
+  "engines": { "node": ">=22.19" },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsdown && node scripts/wrap-client.mjs",
+    "prepack": "npm run build"
+  },
+  "exports": {
+    ".": "./host/index.js",
+    "./client": "./dist/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": ["host", "dist", "cordis.patch.yml"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-theme"
+      ],
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.1",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.14",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

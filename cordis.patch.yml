@@ -1,0 +1,5 @@
+# dsh bundle layer: mount the usage-stats host plugin (host/index.js via the
+# package root export).
+- insert:
+    - id: usage-stats
+      name: 'dsh-usage-stats'
