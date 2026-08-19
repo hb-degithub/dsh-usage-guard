@@ -1,8 +1,15 @@
 import { useState } from 'react';
+import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { Config, Price } from './api.ts';
 import { putConfig } from './api.ts';
+import css from './Panel.module.css';
 
-const fields: (keyof Price)[] = ['input', 'output', 'cacheRead', 'cacheWrite'];
+const fields: { key: keyof Price; label: string }[] = [
+  { key: 'input', label: 'input' },
+  { key: 'output', label: 'output' },
+  { key: 'cacheRead', label: 'cacheRead' },
+  { key: 'cacheWrite', label: 'cacheWrite' },
+];
 
 /** 价格表 + 守卫设置编辑器。 */
 export function ConfigEditor({ config, t, onSaved }: { config: Config; t: (k: string) => string; onSaved: (c: Config) => void }) {
@@ -44,48 +51,74 @@ export function ConfigEditor({ config, t, onSaved }: { config: Config; t: (k: st
     setTimeout(() => setSaved(false), 1500);
   };
 
-  const inputStyle = { width: 72 } as const;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <section>
-        <h4>{t('pricing')}</h4>
-        <table style={{ borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead><tr><th style={{ textAlign: 'left' }}>{t('providerModel')}</th>{fields.map((f) => <th key={f}>{f}</th>)}<th>currency</th></tr></thead>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <h3 className={css.secTitle}>{t('pricing')}</h3>
+        <table className={css.tbl}>
+          <thead>
+            <tr>
+              <th>{t('providerModel')}</th>
+              {fields.map((f) => <th key={f.key} className={css.num}>{f.label}</th>)}
+              <th>currency</th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
             {Object.entries(draft.prices).map(([key, price]) => (
               <tr key={key}>
-                <td style={{ paddingRight: 8 }}>{key}</td>
+                <td className={css.mono}>{key}</td>
                 {fields.map((f) => (
-                  <td key={f}><input style={inputStyle} type="number" min="0" step="0.01" value={price[f]} onChange={(e) => setPrice(key, f, e.target.value)} /></td>
+                  <td key={f.key} className={css.num}>
+                    <Input className={css.numInput} type="number" min="0" step="0.01" value={price[f.key]}
+                      onChange={(e) => setPrice(key, f.key, e.target.value)} />
+                  </td>
                 ))}
-                <td><input style={{ width: 56 }} value={price.currency} onChange={(e) => setPrice(key, 'currency', e.target.value)} /></td>
-                <td><button onClick={() => removePrice(key)}>{t('remove')}</button></td>
+                <td>
+                  <Input className={css.curInput} value={price.currency} onChange={(e) => setPrice(key, 'currency', e.target.value)} />
+                </td>
+                <td className={css.num}>
+                  <Button variant="outline" size="sm" onClick={() => removePrice(key)}>{t('remove')}</Button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <input style={{ width: 180 }} placeholder="provider/model" value={newKey}
+        <div className={css.addRow}>
+          <Input className={css.keyInput} placeholder="provider/model" value={newKey}
             onChange={(e) => { setNewKey(e.target.value); setAddHint(''); }} />
-          <button onClick={addPrice}>{t('add')}</button>
-          {addHint !== '' && <span style={{ fontSize: 11, color: '#c0392b' }}>{addHint}</span>}
+          <Button variant="outline" size="sm" onClick={addPrice}>{t('add')}</Button>
+          {addHint !== '' && <span className={css.err}>{addHint}</span>}
         </div>
-        <p style={{ fontSize: 11, opacity: 0.7 }}>{t('currencyNote')}</p>
+        <p className={css.note}>{t('currencyNote')}</p>
       </section>
-      <section>
-        <h4>{t('guard')}</h4>
-        <label style={{ display: 'block', fontSize: 12 }}>{t('dailyTokens')}:
-          <input style={inputStyle} type="number" min="0" value={draft.guard.dailyTokens ?? ''} onChange={(e) => setGuard('dailyTokens', e.target.value)} /></label>
-        <label style={{ display: 'block', fontSize: 12 }}>{t('dailyCost')}:
-          <input style={inputStyle} type="number" min="0" step="0.01" value={draft.guard.dailyCost ?? ''} onChange={(e) => setGuard('dailyCost', e.target.value)} /></label>
-        <label style={{ display: 'block', fontSize: 12 }}>{t('mode')}:
-          <select value={draft.guard.mode} onChange={(e) => setGuard('mode', e.target.value)}>
+
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <h3 className={css.secTitle}>{t('guard')}</h3>
+        <div className={css.formRow}>
+          <span className={css.formLabel}>{t('dailyTokens')}</span>
+          <Input className={css.numInput} type="number" min="0" value={draft.guard.dailyTokens ?? ''}
+            onChange={(e) => setGuard('dailyTokens', e.target.value)} />
+        </div>
+        <div className={css.formRow}>
+          <span className={css.formLabel}>{t('dailyCost')}</span>
+          <Input className={css.numInput} type="number" min="0" step="0.01" value={draft.guard.dailyCost ?? ''}
+            onChange={(e) => setGuard('dailyCost', e.target.value)} />
+        </div>
+        <div className={css.formRow}>
+          <span className={css.formLabel}>{t('mode')}</span>
+          <select className={css.sel} value={draft.guard.mode} onChange={(e) => setGuard('mode', e.target.value)}>
             <option value="warn">{t('warn')}</option>
             <option value="block">{t('block')}</option>
-          </select></label>
+          </select>
+        </div>
       </section>
-      <button onClick={save} style={{ alignSelf: 'flex-start' }}>{saved ? t('saved') : t('save')}</button>
-      {saveError !== '' && <p style={{ fontSize: 12, color: '#c0392b', margin: 0 }}>{saveError}</p>}
+
+      <div className={css.saveRow}>
+        <Button variant="primary" size="sm" onClick={save}>{t('save')}</Button>
+        {saved && <span className={css.okState}>{t('saved')} ✓</span>}
+        {saveError !== '' && <span className={css.err}>{saveError}</span>}
+      </div>
     </div>
   );
 }

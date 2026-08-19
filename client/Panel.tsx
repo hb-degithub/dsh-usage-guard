@@ -1,11 +1,24 @@
 import { useEffect, useState } from 'react';
+import { IconWarningOutline16 } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { Config, Summary } from './api.ts';
 import { fetchCalendar, fetchConfig, fetchSummary } from './api.ts';
 import { BarChart, CalendarHeat } from './charts.tsx';
 import { ConfigEditor } from './ConfigEditor.tsx';
+import css from './Panel.module.css';
 
 const fmtTokens = (n: number) => n.toLocaleString();
 const fmtCost = (c: number | null) => c === null ? '—' : `¥${c.toFixed(2)}`;
+
+/** 面板标题前的柱状图 glyph：currentColor，跟随主题。 */
+function UsageGlyph({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x="1.75" y="8.75" width="3.5" height="5.5" rx="0.9" fill="currentColor" />
+      <rect x="6.25" y="4.75" width="3.5" height="9.5" rx="0.9" fill="currentColor" />
+      <rect x="10.75" y="1.75" width="3.5" height="12.5" rx="0.9" fill="currentColor" />
+    </svg>
+  );
+}
 
 export function Panel({ t }: { t: (k: string) => string }) {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -23,47 +36,92 @@ export function Panel({ t }: { t: (k: string) => string }) {
     fetchCalendar(month).then((r) => setCalendar(r.days)).catch(() => {});
   }, [month]);
 
-  if (error !== '') return <p>{t('loadFail')}</p>;
-  if (!summary || !config) return <p>…</p>;
+  if (error !== '') return <p className={css.err}>{t('loadFail')}</p>;
+  if (!summary || !config) return <p className={css.empty}>…</p>;
 
-  const card = { padding: 12, borderRadius: 8, background: 'var(--dsw-alias-bg-l2, #f5f5f5)', minWidth: 120 } as const;
+  const monthTokens = summary.series.reduce((a, d) => a + d.tokens, 0);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontSize: 13 }}>
+    <div className={css.root}>
+      <div className={css.head}>
+        <UsageGlyph />
+        <h2 className={css.title}>{t('nav')}</h2>
+      </div>
+
       {summary.guard.over && (
-        <div style={{ padding: 10, borderRadius: 8, background: 'var(--dsw-alias-warning-bg, #fff4e0)', color: 'var(--dsw-alias-warning, #a05a00)' }}>
-          ⚠ {t('overLimit')}：{summary.guard.reasons.join('；')}
+        <div className={css.banner}>
+          <span className={css.bannerIcon}><IconWarningOutline16 size={14} /></span>
+          <span>{t('overLimit')}：{summary.guard.reasons.join('；')}</span>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <div style={card}><div>{t('today')}</div><strong>{fmtTokens(summary.today.tokens)}</strong><div>{fmtCost(summary.today.cost)}</div></div>
-        <div style={card}><div>{t('month')}</div><strong>{fmtTokens(summary.series.reduce((a, d) => a + d.tokens, 0))}</strong></div>
-        <div style={card}><div>{t('total')}</div><strong>{fmtTokens(summary.totals.tokens)}</strong><div>{fmtCost(summary.totals.cost)}</div></div>
-        <div style={card}><div>{t('requests')}</div><strong>{fmtTokens(summary.totals.requests)}</strong></div>
+
+      <div className={css.stats}>
+        <div className={css.stat}>
+          <span className={css.statLabel}>{t('today')}</span>
+          <span className={css.statValue}>{fmtTokens(summary.today.tokens)}</span>
+          <span className={css.statSub}>{fmtCost(summary.today.cost)}</span>
+        </div>
+        <div className={css.stat}>
+          <span className={css.statLabel}>{t('month')}</span>
+          <span className={css.statValue}>{fmtTokens(monthTokens)}</span>
+          <span className={css.statSub}>{t('tokens')}</span>
+        </div>
+        <div className={css.stat}>
+          <span className={css.statLabel}>{t('total')}</span>
+          <span className={css.statValue}>{fmtTokens(summary.totals.tokens)}</span>
+          <span className={css.statSub}>{fmtCost(summary.totals.cost)}</span>
+        </div>
+        <div className={css.stat}>
+          <span className={css.statLabel}>{t('requests')}</span>
+          <span className={css.statValue}>{fmtTokens(summary.totals.requests)}</span>
+          <span className={css.statSub}>{t('total')}</span>
+        </div>
       </div>
-      {summary.totals.tokens === 0 && <p style={{ opacity: 0.7 }}>{t('empty')}</p>}
-      <section><h4>{t('month')}</h4><BarChart series={summary.series} /></section>
-      <section><h4>{t('calendar')}</h4><CalendarHeat month={month} days={calendar} onMonth={setMonth} /></section>
-      <section>
-        <h4>{t('byModel')}</h4>
-        <table style={{ borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead><tr><th style={{ textAlign: 'left' }}>{t('providerModel')}</th><th>{t('tokens')}</th><th>{t('requests')}</th><th>{t('cost')}</th></tr></thead>
+
+      {summary.totals.tokens === 0 && <p className={css.empty}>{t('empty')}</p>}
+
+      <section className={css.card}>
+        <h3 className={css.secTitle}>{t('month')}</h3>
+        <BarChart series={summary.series} t={t} />
+      </section>
+
+      <section className={css.card}>
+        <h3 className={css.secTitle}>{t('calendar')}</h3>
+        <CalendarHeat month={month} days={calendar} onMonth={setMonth} t={t} />
+      </section>
+
+      <section className={css.card}>
+        <h3 className={css.secTitle}>{t('byModel')}</h3>
+        <table className={css.tbl}>
+          <thead>
+            <tr>
+              <th>{t('providerModel')}</th>
+              <th className={css.num}>{t('tokens')}</th>
+              <th className={css.num}>{t('requests')}</th>
+              <th className={css.num}>{t('cost')}</th>
+            </tr>
+          </thead>
           <tbody>
             {summary.byModel.map((m) => (
               <tr key={`${m.provider}/${m.model}`}>
-                <td style={{ paddingRight: 12 }}>{m.provider}/{m.model}</td>
-                <td style={{ textAlign: 'right', paddingRight: 12 }}>{fmtTokens(m.tokens)}</td>
-                <td style={{ textAlign: 'right', paddingRight: 12 }}>{m.requests}</td>
-                <td style={{ textAlign: 'right' }}>{m.cost === null ? `— (${t('unknownPrice')})` : fmtCost(m.cost)}</td>
+                <td>{m.provider}/{m.model}</td>
+                <td className={css.num}>{fmtTokens(m.tokens)}</td>
+                <td className={css.num}>{m.requests}</td>
+                <td className={css.num}>
+                  {m.cost === null ? <span className={css.muted} title={t('unknownPrice')}>—</span> : fmtCost(m.cost)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </section>
-      <ConfigEditor config={config} t={t} onSaved={(c) => {
-        setConfig(c);
-        fetchSummary().then(setSummary).catch(() => {}); // 价格变更后立即刷新费用
-        fetchCalendar(month).then((r) => setCalendar(r.days)).catch(() => {});
-      }} />
+
+      <section className={css.card}>
+        <ConfigEditor config={config} t={t} onSaved={(c) => {
+          setConfig(c);
+          fetchSummary().then(setSummary).catch(() => {}); // 价格变更后立即刷新费用
+          fetchCalendar(month).then((r) => setCalendar(r.days)).catch(() => {});
+        }} />
+      </section>
     </div>
   );
 }

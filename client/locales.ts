@@ -27,6 +27,7 @@ export const zh: Record<string, string> = {
   priceKeyInvalid: '格式须为 provider/model',
   priceKeyDuplicate: '该条目已存在',
   currencyNote: '金额单位取决于各价格条目的 currency；内置 DeepSeek 刊例价以官网为准。',
+  weekdays: '日,一,二,三,四,五,六',
 };
 
 export const en: Record<string, string> = {
@@ -58,4 +59,5 @@ export const en: Record<string, string> = {
   priceKeyInvalid: 'Must be in provider/model format',
   priceKeyDuplicate: 'Entry already exists',
   currencyNote: 'Amounts use each price entry’s currency; built-in DeepSeek list prices — check the official page.',
+  weekdays: 'S,M,T,W,T,F,S',
 };

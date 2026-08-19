@@ -1,0 +1,63 @@
+/* 用量统计面板样式。配色全部走 --dsw-alias-* 设计令牌（浅色字面量为兜底），
+ * 与 dshmarket 设置页同一套视觉语言：12px 圆角卡片、11/12/14px 字阶、border-l2 分隔。 */
+
+.root{display:flex;flex-direction:column;gap:16px;min-width:0;color:var(--dsw-alias-label-primary,#1f2328)}
+.head{display:flex;align-items:center;gap:10px;padding:4px 4px 0}
+.title{font-size:16px;line-height:24px;font-weight:500;margin:0}
+.sub{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#8b93a1);margin:-8px 0 0}
+
+.banner{display:flex;align-items:center;gap:8px;background:var(--dsw-alias-bg-layer-2,#fdf3e3);border:1px solid var(--dsw-alias-border-l2,#f3e3c3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--dsw-alias-state-warn-primary,#b45309)}
+.bannerIcon{flex-shrink:0;display:inline-flex}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.stat{background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.statLabel{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1)}
+.statValue{font-size:20px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.statSub{font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280);font-variant-numeric:tabular-nums}
+
+.card{background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.secTitle{font-size:14px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
+.secHint{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1);font-weight:400}
+
+.empty{color:var(--dsw-alias-label-secondary,#9ca3af);font-size:13px;padding:24px;text-align:center}
+
+/* 柱状图 */
+.chart{display:flex;align-items:flex-end;gap:3px;height:120px}
+.barCol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;min-width:0;height:100%}
+.bar{width:100%;border-radius:3px 3px 0 0;background:var(--dsw-alias-brand-primary,#4f6ef7);min-height:2px;opacity:.85;transition:opacity .15s}
+.barCol:hover .bar{opacity:1}
+
+/* 日历 */
+.calNav{display:flex;align-items:center;gap:8px}
+.calMonth{font-size:13px;font-weight:600;min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
+.calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calDow{font-size:10px;color:var(--dsw-alias-label-tertiary,#8b93a1);text-align:center;padding:2px 0}
+.calCell{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);color:var(--dsw-alias-label-secondary,#6b7280);font-variant-numeric:tabular-nums}
+.calCellOn{color:#fff}
+.calCellToday{outline:1.5px solid var(--dsw-alias-brand-primary,#4f6ef7);outline-offset:-1.5px}
+
+/* 表格 */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;font-weight:500;font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280);padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e7eb);white-space:nowrap}
+.tbl td{padding:7px 8px;border-top:1px solid var(--dsw-alias-border-l2,#e5e7eb);font-variant-numeric:tabular-nums;vertical-align:middle}
+.tbl tr td:first-child{font-weight:500}
+.num{text-align:right}
+.muted{color:var(--dsw-alias-label-tertiary,#8b93a1);font-weight:400}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280)}
+
+/* 表单 */
+.formRow{display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap}
+.formLabel{color:var(--dsw-alias-label-secondary,#6b7280);min-width:150px}
+.sel{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#1f2328);background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l3,#d9dde3);border-radius:6px;padding:4px 8px;height:28px}
+.sel:focus{outline:none;border-color:var(--dsw-alias-brand-primary,#4f6ef7)}
+.numInput{width:90px}
+.keyInput{width:180px}
+.curInput{width:64px}
+.addRow{display:flex;align-items:center;gap:8px;margin-top:4px}
+.saveRow{display:flex;align-items:center;gap:10px}
+.okState{font-size:12px;font-weight:600;color:var(--dsw-alias-state-success-primary,#16a34a);white-space:nowrap}
+.err{color:var(--dsw-alias-state-error-primary,#dc2626);font-size:12px;white-space:pre-wrap;word-break:break-all}
+.note{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1);margin:0;line-height:16px}
+
+/* 全局超限提醒（shell.overlay） */
+.overlay{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:8px;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-state-warn-primary,#b45309);color:var(--dsw-alias-state-warn-primary,#b45309);border-radius:8px;padding:8px 14px;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-width:min(560px,90vw)}
