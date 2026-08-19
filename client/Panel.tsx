@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { IconWarningOutline16 } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { Config, Summary } from './api.ts';
-import { fetchCalendar, fetchConfig, fetchSummary } from './api.ts';
-import { BarChart, CalendarHeat } from './charts.tsx';
+import { fetchConfig, fetchSummary } from './api.ts';
+import { TrendChart, YearHeatmap, ModelDonut, type FmtBig } from './charts.tsx';
 import { ConfigEditor } from './ConfigEditor.tsx';
 import css from './Panel.module.css';
 
-const fmtTokens = (n: number) => n.toLocaleString();
 const fmtCost = (c: number | null) => c === null ? '—' : `¥${c.toFixed(2)}`;
 
 /** 面板标题前的柱状图 glyph：currentColor，跟随主题。 */
@@ -23,28 +22,55 @@ function UsageGlyph({ size = 18 }: { size?: number }) {
 export function Panel({ t }: { t: (k: string) => string }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
-  const [month, setMonth] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
-  const [calendar, setCalendar] = useState<Record<string, { tokens: number; cost: number | null; requests: number }>>({});
+  const [range, setRange] = useState<7 | 30>(30);
   const [error, setError] = useState('');
+
+  // 中文大数格式（亿/万），英文用 M/k —— 由 t('numStyle') 决定
+  const fmtBig: FmtBig = (n) => {
+    if (t('numStyle') === 'cn') {
+      if (n >= 1e8) return `${(n / 1e8).toFixed(1)}亿`;
+      if (n >= 1e4) return `${(n / 1e4).toFixed(1)}万`;
+      return n.toLocaleString();
+    }
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+    return String(n);
+  };
 
   useEffect(() => {
     Promise.all([fetchSummary(), fetchConfig()])
       .then(([s, c]) => { setSummary(s); setConfig(c); })
       .catch(() => setError('loadFail'));
   }, []);
-  useEffect(() => {
-    fetchCalendar(month).then((r) => setCalendar(r.days)).catch(() => {});
-  }, [month]);
 
   if (error !== '') return <p className={css.err}>{t('loadFail')}</p>;
   if (!summary || !config) return <p className={css.empty}>…</p>;
 
-  const monthTokens = summary.series.reduce((a, d) => a + d.tokens, 0);
+  const trendSeries = summary.series.slice(-range);
+  const stats = [
+    { label: t('tokens'), value: fmtBig(summary.totals.tokens), sub: fmtCost(summary.totals.cost), small: false },
+    { label: t('sessions'), value: fmtBig(summary.totals.sessions), sub: '', small: false },
+    { label: t('messages'), value: fmtBig(summary.totals.requests), sub: '', small: false },
+    { label: t('activeDays'), value: String(summary.activeDays), sub: '', small: false },
+    { label: t('streak'), value: String(summary.currentStreak), sub: '', small: false },
+    summary.topModel !== null
+      ? { label: t('topModel'), value: summary.topModel.name, sub: `${t('share')} ${(summary.topModel.share * 100).toFixed(0)}%`, small: true }
+      : { label: t('topModel'), value: '—', sub: '', small: false },
+  ];
+
   return (
     <div className={css.root}>
       <div className={css.head}>
         <UsageGlyph />
         <h2 className={css.title}>{t('nav')}</h2>
+        <span className={css.grow} />
+        <div className={css.pills}>
+          {([7, 30] as const).map((r) => (
+            <button key={r} className={range === r ? css.pillOn : css.pill} onClick={() => setRange(r)}>
+              {r === 7 ? t('range7') : t('range30')}
+            </button>
+          ))}
+        </div>
       </div>
 
       {summary.guard.over && (
@@ -54,72 +80,37 @@ export function Panel({ t }: { t: (k: string) => string }) {
         </div>
       )}
 
-      <div className={css.stats}>
-        <div className={css.stat}>
-          <span className={css.statLabel}>{t('today')}</span>
-          <span className={css.statValue}>{fmtTokens(summary.today.tokens)}</span>
-          <span className={css.statSub}>{fmtCost(summary.today.cost)}</span>
-        </div>
-        <div className={css.stat}>
-          <span className={css.statLabel}>{t('month')}</span>
-          <span className={css.statValue}>{fmtTokens(monthTokens)}</span>
-          <span className={css.statSub}>{t('tokens')}</span>
-        </div>
-        <div className={css.stat}>
-          <span className={css.statLabel}>{t('total')}</span>
-          <span className={css.statValue}>{fmtTokens(summary.totals.tokens)}</span>
-          <span className={css.statSub}>{fmtCost(summary.totals.cost)}</span>
-        </div>
-        <div className={css.stat}>
-          <span className={css.statLabel}>{t('requests')}</span>
-          <span className={css.statValue}>{fmtTokens(summary.totals.requests)}</span>
-          <span className={css.statSub}>{t('total')}</span>
-        </div>
-      </div>
-
       {summary.totals.tokens === 0 && <p className={css.empty}>{t('empty')}</p>}
 
+      <div className={css.stats6}>
+        {stats.map((s) => (
+          <div key={s.label} className={css.stat}>
+            <span className={css.statLabel}>{s.label}</span>
+            <span className={s.small ? css.statValueSm : css.statValue} title={s.value}>{s.value}</span>
+            <span className={css.statSub}>{s.sub}</span>
+          </div>
+        ))}
+      </div>
+
       <section className={css.card}>
-        <h3 className={css.secTitle}>{t('month')}</h3>
-        <BarChart series={summary.series} t={t} />
+        <h3 className={css.secTitle}>{t('heatmap')}</h3>
+        <YearHeatmap series={summary.series} fmt={fmtBig} t={t} />
       </section>
 
       <section className={css.card}>
-        <h3 className={css.secTitle}>{t('calendar')}</h3>
-        <CalendarHeat month={month} days={calendar} onMonth={setMonth} t={t} />
+        <h3 className={css.secTitle}>{t('trend')}</h3>
+        <TrendChart series={trendSeries} models={summary.byModel} fmt={fmtBig} t={t} />
       </section>
 
       <section className={css.card}>
-        <h3 className={css.secTitle}>{t('byModel')}</h3>
-        <table className={css.tbl}>
-          <thead>
-            <tr>
-              <th>{t('providerModel')}</th>
-              <th className={css.num}>{t('tokens')}</th>
-              <th className={css.num}>{t('requests')}</th>
-              <th className={css.num}>{t('cost')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summary.byModel.map((m) => (
-              <tr key={`${m.provider}/${m.model}`}>
-                <td>{m.provider}/{m.model}</td>
-                <td className={css.num}>{fmtTokens(m.tokens)}</td>
-                <td className={css.num}>{m.requests}</td>
-                <td className={css.num}>
-                  {m.cost === null ? <span className={css.muted} title={t('unknownPrice')}>—</span> : fmtCost(m.cost)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <h3 className={css.secTitle}>{t('modelUsage')}</h3>
+        <ModelDonut models={summary.byModel} total={summary.totals.tokens} fmt={fmtBig} />
       </section>
 
       <section className={css.card}>
         <ConfigEditor config={config} t={t} onSaved={(c) => {
           setConfig(c);
           fetchSummary().then(setSummary).catch(() => {}); // 价格变更后立即刷新费用
-          fetchCalendar(month).then((r) => setCalendar(r.days)).catch(() => {});
         }} />
       </section>
     </div>

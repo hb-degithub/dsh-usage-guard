@@ -1,40 +1,54 @@
-/* 用量统计面板样式。配色全部走 --dsw-alias-* 设计令牌（浅色字面量为兜底），
+/* 使用统计面板样式。配色全部走 --dsw-alias-* 设计令牌（浅色字面量为兜底），
  * 与 dshmarket 设置页同一套视觉语言：12px 圆角卡片、11/12/14px 字阶、border-l2 分隔。 */
 
 .root{display:flex;flex-direction:column;gap:16px;min-width:0;color:var(--dsw-alias-label-primary,#1f2328)}
 .head{display:flex;align-items:center;gap:10px;padding:4px 4px 0}
 .title{font-size:16px;line-height:24px;font-weight:500;margin:0}
-.sub{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#8b93a1);margin:-8px 0 0}
+.grow{flex:1}
+
+/* 时间范围切换 */
+.pills{display:flex;gap:2px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);border-radius:8px;padding:2px}
+.pill{border:none;background:none;font:inherit;font-size:12px;color:var(--dsw-alias-label-secondary,#6b7280);padding:4px 12px;cursor:pointer;border-radius:6px;white-space:nowrap}
+.pillOn{border:none;font:inherit;font-size:12px;padding:4px 12px;cursor:pointer;border-radius:6px;white-space:nowrap;background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#1f2328);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 
 .banner{display:flex;align-items:center;gap:8px;background:var(--dsw-alias-bg-layer-2,#fdf3e3);border:1px solid var(--dsw-alias-border-l2,#f3e3c3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--dsw-alias-state-warn-primary,#b45309)}
 .bannerIcon{flex-shrink:0;display:inline-flex}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
-.stat{background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+/* 统计卡片 */
+.stats6{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.stat{background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .statLabel{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1)}
 .statValue{font-size:20px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.statSub{font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280);font-variant-numeric:tabular-nums}
+.statValueSm{font-size:14px;line-height:28px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.statSub{font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280);font-variant-numeric:tabular-nums;min-height:15px}
 
 .card{background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
 .secTitle{font-size:14px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
-.secHint{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1);font-weight:400}
 
 .empty{color:var(--dsw-alias-label-secondary,#9ca3af);font-size:13px;padding:24px;text-align:center}
 
-/* 柱状图 */
-.chart{display:flex;align-items:flex-end;gap:3px;height:120px}
-.barCol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;min-width:0;height:100%}
-.bar{width:100%;border-radius:3px 3px 0 0;background:var(--dsw-alias-brand-primary,#4f6ef7);min-height:2px;opacity:.85;transition:opacity .15s}
-.barCol:hover .bar{opacity:1}
+/* 活跃热力图（GitHub 风格：列=周，行=周日~周六） */
+.heat{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px}
+.heatCol{display:flex;flex-direction:column;gap:3px}
+.heatCell{width:11px;height:11px;border-radius:2.5px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);flex-shrink:0}
+.heatLegend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1);justify-content:flex-end;margin-top:6px}
 
-/* 日历 */
-.calNav{display:flex;align-items:center;gap:8px}
-.calMonth{font-size:13px;font-weight:600;min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
-.calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.calDow{font-size:10px;color:var(--dsw-alias-label-tertiary,#8b93a1);text-align:center;padding:2px 0}
-.calCell{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);color:var(--dsw-alias-label-secondary,#6b7280);font-variant-numeric:tabular-nums}
-.calCellOn{color:#fff}
-.calCellToday{outline:1.5px solid var(--dsw-alias-brand-primary,#4f6ef7);outline-offset:-1.5px}
+/* 按天趋势（堆叠柱状） */
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280)}
+.legendItem{display:inline-flex;align-items:center;gap:5px}
+.legendDot{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0}
+.trend{display:flex;align-items:flex-end;gap:2px;height:150px;margin-top:4px}
+.trendCol{flex:1;display:flex;flex-direction:column-reverse;min-width:0;height:100%}
+.seg{width:100%}
+.xlabels{display:flex;margin-top:6px}
+.xlabel{flex:1;font-size:10px;color:var(--dsw-alias-label-tertiary,#8b93a1);text-align:center;overflow:hidden;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* 模型用量（环形图 + 明细） */
+.donutWrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.donutList{flex:1;display:flex;flex-direction:column;gap:8px;min-width:220px}
+.donutRow{display:flex;align-items:center;gap:8px;font-size:12px;font-variant-numeric:tabular-nums}
+.donutName{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.donutShare{width:44px;text-align:right;color:var(--dsw-alias-label-secondary,#6b7280)}
 
 /* 表格 */
 .tbl{width:100%;border-collapse:collapse;font-size:12px}

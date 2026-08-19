@@ -12,7 +12,7 @@ import css from './Panel.module.css';
 const NS = 'dsh-usage-stats';
 
 /** 面板用到的 primitives 导出；旧宿主缺失时降级为提示而不是白屏。 */
-const REQUIRED_PRIMITIVES = ['Button', 'Input', 'IconWarningOutline16', 'IconChevronLeftOutline14', 'IconChevronRightOutline14'] as const;
+const REQUIRED_PRIMITIVES = ['Button', 'Input', 'IconWarningOutline16'] as const;
 const missingPrimitives = (): string[] => REQUIRED_PRIMITIVES.filter((k) => (primitives as Record<string, unknown>)[k] === undefined);
 
 interface LocaleService {

@@ -59,6 +59,19 @@ describe('routes', () => {
     expect(out.guard.over).toBe(false);
   });
 
+  it('summary exposes dashboard stats: sessions, activeDays, streak, topModel, per-day byModel', async () => {
+    const today = seed();
+    const { req, res } = fakeReqRes('GET', '/usage-stats/summary?days=30');
+    await handler(req, res);
+    const out = JSON.parse(res.body);
+    expect(out.totals.sessions).toBe(3); // s1, s2, s3
+    expect(out.activeDays).toBe(2); // today + 2020-01-15
+    expect(out.currentStreak).toBe(1); // 仅今天
+    expect(out.topModel).toEqual({ name: 'deepseek/deepseek-chat', tokens: 1_500_000, share: out.totals.tokens > 0 ? 1_500_000 / out.totals.tokens : 0 });
+    const todayRow = out.series.find((d) => d.day === today);
+    expect(todayRow.byModel).toEqual({ 'zijian/kimi-k3': 1200, 'deepseek/deepseek-chat': 1_500_000 });
+  });
+
   it('GET calendar returns per-day map for the month', async () => {
     const today = seed();
     const month = today.slice(0, 7);

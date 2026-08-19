@@ -96,7 +96,7 @@ export function mountUsageRoutes(webServer, store) {
   return webServer.register({ kind: 'prefix', path: '/usage-stats', handler });
 }
 
-/** 汇总：近 N 天序列 + 按模型 + 合计 + 今日 + 守卫。 */
+/** 汇总：近 N 天序列（含按模型分段） + 按模型 + 合计 + 今日 + 活跃统计 + 守卫。 */
 export function buildSummary(store, days) {
   const { prices } = store.data.config;
   const byDay = new Map();
@@ -108,9 +108,10 @@ export function buildSummary(store, days) {
     const cost = costOf(b, prices[priceKey(provider, model)]);
     if (cost === null) unknown.add(priceKey(provider, model));
     const tokens = tokensOf(b);
-    const d = byDay.get(day) ?? { day, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 0, tokens: 0, cost: 0 };
+    const d = byDay.get(day) ?? { day, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 0, tokens: 0, cost: 0, byModel: {} };
     d.input += b.input; d.output += b.output; d.cacheRead += b.cacheRead; d.cacheWrite += b.cacheWrite;
     d.requests += b.requests; d.tokens += tokens; if (cost !== null) d.cost += cost;
+    d.byModel[priceKey(provider, model)] = (d.byModel[priceKey(provider, model)] ?? 0) + tokens;
     byDay.set(day, d);
     const m = byModel.get(priceKey(provider, model)) ?? { provider, model, tokens: 0, cost: 0, requests: 0 };
     m.tokens += tokens; m.requests += b.requests; if (cost !== null) m.cost += cost;
@@ -123,12 +124,22 @@ export function buildSummary(store, days) {
   const models = [...byModel.values()].sort((a, b) => b.tokens - a.tokens)
     .map((m) => ({ ...m, cost: unknown.has(priceKey(m.provider, m.model)) ? null : m.cost }));
   const today = dayOf(Date.now());
-  const t = byDay.get(today) ?? { day: today, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 0, tokens: 0, cost: 0 };
+  const t = byDay.get(today) ?? { day: today, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 0, tokens: 0, cost: 0, byModel: {} };
+  // 活跃天数 / 当前连续天数（今天无数据则从昨天起数）
+  const activeDays = byDay.size;
+  let streak = 0;
+  let cursor = Date.now();
+  if (!byDay.has(dayOf(cursor))) cursor -= 86400_000;
+  while (byDay.has(dayOf(cursor))) { streak += 1; cursor -= 86400_000; }
+  const top = models[0];
   return {
     today: { ...t, cost: unknownPriceInDay(store, today) ? null : t.cost },
     series: series.map((d) => ({ ...d, cost: unknownPriceInDay(store, d.day) ? null : d.cost })),
     byModel: models,
-    totals: { tokens: totalTokens, cost: costKnown ? totalCost : null, requests: totalRequests },
+    totals: { tokens: totalTokens, cost: costKnown ? totalCost : null, requests: totalRequests, sessions: Object.keys(store.data.sessions).length },
+    activeDays,
+    currentStreak: streak,
+    topModel: top ? { name: priceKey(top.provider, top.model), tokens: top.tokens, share: totalTokens > 0 ? top.tokens / totalTokens : 0 } : null,
     unknownPriceModels: [...unknown],
     guard: guardStatus(store, today),
   };
