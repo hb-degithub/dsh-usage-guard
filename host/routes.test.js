@@ -6,11 +6,11 @@ import { Store } from './store.js';
 import { mountUsageRoutes } from './routes.js';
 import { initFold, keyOf, dayOf } from './fold.js';
 
-let dir, store, handler;
+let dir, store, handler, registeredRoute;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'routes-'));
   store = new Store(join(dir, 's.json')); store.load();
-  const webServer = { register: (route) => { handler = route.handler; return () => {}; } };
+  const webServer = { register: (route) => { handler = route.handler; registeredRoute = route; return () => {}; } };
   mountUsageRoutes(webServer, store);
 });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
@@ -33,6 +33,17 @@ function fakeReqRes(method, url, body, headers = {}) {
 }
 
 describe('routes', () => {
+  it('registers a prefix the server matcher can actually match (no trailing slash)', () => {
+    // dsh-host-webserver 的 prefix 匹配规则（lib/index.js:199）：
+    //   pathname === prefix || pathname.startsWith(prefix + '/')
+    // 注册 '/usage-stats/'（尾斜杠）时 startsWith('/usage-stats//') 永假 → 所有路由 404 落 SPA。
+    expect(registeredRoute.kind).toBe('prefix');
+    const p = registeredRoute.path;
+    const matches = (pathname) => pathname === p || pathname.startsWith(p + '/');
+    expect(matches('/usage-stats/summary')).toBe(true);
+    expect(matches('/usage-stats/calendar')).toBe(true);
+    expect(matches('/usage-stats/config')).toBe(true);
+  });
   it('GET summary aggregates tokens, computes cost only for priced models', async () => {
     const today = seed();
     const { req, res } = fakeReqRes('GET', '/usage-stats/summary?days=30');

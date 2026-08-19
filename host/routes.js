@@ -55,7 +55,7 @@ export function guardStatus(store, today = dayOf(Date.now())) {
 export function mountUsageRoutes(webServer, store) {
   const handler = async (req, res) => {
     const url = new URL(req.url, 'http://internal');
-    const sub = url.pathname.replace(/^\/usage-stats\//, '').replace(/\/$/, '');
+    const sub = url.pathname.replace(/^\/usage-stats\/?/, '').replace(/\/$/, '');
     try {
       if (req.method === 'GET' && sub === 'summary') {
         const days = Math.min(Number(url.searchParams.get('days') ?? 30) || 30, 366);
@@ -91,7 +91,9 @@ export function mountUsageRoutes(webServer, store) {
       sendJson(res, error.statusCode ?? 500, { error: String(error?.message ?? error) });
     }
   };
-  return webServer.register({ kind: 'prefix', path: '/usage-stats/', handler });
+  // prefix 不带尾斜杠：dsh-host-webserver 的匹配规则是 pathname === prefix || startsWith(prefix + '/')，
+  // 尾斜杠会使 '/usage-stats/summary'.startsWith('/usage-stats//') 永假，路由全部落空。
+  return webServer.register({ kind: 'prefix', path: '/usage-stats', handler });
 }
 
 /** 汇总：近 N 天序列 + 按模型 + 合计 + 今日 + 守卫。 */
