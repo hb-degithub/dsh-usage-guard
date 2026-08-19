@@ -83,7 +83,7 @@ export function Panel({ t }: { t: (k: string) => string }) {
       </div>
 
       <section className={css.card}>
-        <HeatmapCard series={summary.series} fmt={fmtBig} t={t} />
+        <HeatmapCard series={summary.series} models={summary.byModel} fmt={fmtBig} t={t} />
       </section>
 
       <section className={css.card}>

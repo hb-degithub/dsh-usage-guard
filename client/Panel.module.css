@@ -30,6 +30,7 @@
 
 /* 活跃热力图（GitHub 贡献图式：列=周，行=周日~周六；月份标注+星期标注随网格一起横向滚动，默认停在最右） */
 .heatScroll{overflow-x:auto;padding-bottom:4px}
+.heatWrap{position:relative}
 .heatInner{display:inline-block;min-width:100%}
 .heat{display:flex;gap:3px}
 .heatCol{display:flex;flex-direction:column;gap:3px}
@@ -53,6 +54,7 @@
 .trendWrap{position:relative}
 .tip{position:absolute;top:8px;transform:translateX(-50%);z-index:2;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:8px;padding:8px 10px;font-size:11px;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;min-width:160px}
 .tipTitle{font-weight:600;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.tipDivider{border-top:1px solid var(--dsw-alias-border-l2,#e5e7eb);margin:5px 0}
 .tipRow{display:flex;align-items:center;gap:6px;line-height:18px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .tipVal{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary,#1f2328);font-weight:500}
 

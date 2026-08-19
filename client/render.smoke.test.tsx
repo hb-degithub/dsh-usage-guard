@@ -19,7 +19,7 @@ const summary = buildSummary({ data: raw }, 366);
 
 const markup = renderToStaticMarkup(
   h('div', null,
-    h(HeatmapCard, { series: summary.series, fmt, t }),
+    h(HeatmapCard, { series: summary.series, models: summary.byModel, fmt, t }),
     h(TrendCard, { series: summary.series, fmt, t }),
     h(ModelDonut, { models: summary.byModel, total: summary.totals.tokens, fmt }),
   ),
@@ -46,9 +46,9 @@ describe('client SSR smoke (real production data)', () => {
     const missing = [...used].filter((c) => !defined.has(c));
     expect(missing).toEqual([]);
   });
-  it('heatmap tooltips cover empty days too (reference behavior)', () => {
-    // 连续年度视图：每格（含无数据日）都应有 title 提示，今天带高亮描边类
-    const tips = [...markup.matchAll(/title="(\d+)月(\d+)日：/g)];
+  it('heatmap cells expose per-day aria labels and today highlight', () => {
+    // 连续年度视图：每格（含无数据日）都有 aria-label 摘要（悬浮详情卡为交互层，SSR 不触发）
+    const tips = [...markup.matchAll(/aria-label="(\d+)月(\d+)日：/g)];
     expect(tips.length).toBeGreaterThan(300);
     expect(markup).toContain('heatCellToday');
   });

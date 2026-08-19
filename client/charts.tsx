@@ -19,13 +19,14 @@ const tipOf = (d: Date, cell: DayRow | undefined, fmt: FmtBig, t: T) =>
 /**
  * 活跃热力图（GitHub 贡献图式单一连续视图）：
  * 列=周、行=周日~周六；左侧星期标注（一/三/五）、顶部月份标注随网格一起横向滚动；
- * 默认滚动到最右（最新一天），今天高亮描边，所有格子悬浮显示当日用量。
+ * 默认滚动到最右（最新一天），今天高亮描边；悬浮格子显示当日详细用量卡（按模型分行）。
  */
-export function HeatmapCard({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig; t: T }) {
+export function HeatmapCard({ series, models, fmt, t }: { series: DayRow[]; models: ModelRow[]; fmt: FmtBig; t: T }) {
   const map = new Map(series.map((d) => [d.day, d]));
   const max = Math.max(1, ...series.map((d) => d.tokens));
   const monthNames = t('monthNames').split(',');
   const dows = t('weekdays').split(',');
+  const colorOf = new Map(models.map((m, i) => [`${m.provider}/${m.model}`, modelColor(i)]));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayK = dayKey(today);
@@ -38,6 +39,22 @@ export function HeatmapCard({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig;
     const el = scrollRef.current;
     if (el !== null) el.scrollLeft = el.scrollWidth;
   }, []);
+
+  // 悬浮详情卡状态：相对卡片容器定位
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ date: Date; cell: DayRow | undefined; left: number; top: number; above: boolean } | null>(null);
+  const enter = (e: React.MouseEvent<HTMLDivElement>, d: Date, cell: DayRow | undefined) => {
+    const wrap = wrapRef.current?.getBoundingClientRect();
+    if (wrap === undefined) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setHover({
+      date: new Date(d),
+      cell,
+      left: Math.max(96, Math.min(wrap.width - 96, r.left - wrap.left + r.width / 2)),
+      top: r.top - wrap.top,
+      above: r.top - wrap.top > 150,
+    });
+  };
 
   const weeks: React.ReactNode[] = [];
   const labels: string[] = [];
@@ -55,13 +72,18 @@ export function HeatmapCard({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig;
       const level = levelOf(cell?.tokens ?? 0, max);
       cells.push(
         <div key={key} className={key === todayK ? `${css.heatCell} ${css.heatCellToday}` : css.heatCell}
-          title={tipOf(d, cell, fmt, t)}
+          role="img" aria-label={tipOf(d, cell, fmt, t)}
+          onMouseEnter={cursor > today ? undefined : (e) => enter(e, d, cell)}
+          onMouseLeave={() => setHover(null)}
           style={cursor > today ? { visibility: 'hidden' } : level > 0 ? { background: levelColor(level) } : undefined} />,
       );
       cursor.setDate(cursor.getDate() + 1);
     }
     weeks.push(<div key={w++} className={css.heatCol}>{cells}</div>);
   }
+
+  const hcell = hover?.cell;
+  const modelRows = hcell ? Object.entries(hcell.byModel).sort((a, b) => b[1] - a[1]).slice(0, 4) : [];
   return (
     <>
       <div className={css.cardHeadRow}>
@@ -75,19 +97,46 @@ export function HeatmapCard({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig;
           <span>{t('more')}</span>
         </span>
       </div>
-      <div className={css.heatScroll} ref={scrollRef}>
-        <div className={css.heatInner}>
-          <div className={css.heatMonths}>
-            <span className={css.heatDowSpacer} />
-            {labels.map((l, i) => <span key={i} className={css.heatMonth}>{l}</span>)}
-          </div>
-          <div className={css.heatRows}>
-            <div className={css.heatDows}>
-              {dows.map((d, i) => <span key={i} className={css.heatDow}>{i % 2 === 1 ? d : ''}</span>)}
+      <div className={css.heatWrap} ref={wrapRef}>
+        <div className={css.heatScroll} ref={scrollRef}>
+          <div className={css.heatInner}>
+            <div className={css.heatMonths}>
+              <span className={css.heatDowSpacer} />
+              {labels.map((l, i) => <span key={i} className={css.heatMonth}>{l}</span>)}
             </div>
-            <div className={css.heat}>{weeks}</div>
+            <div className={css.heatRows}>
+              <div className={css.heatDows}>
+                {dows.map((d, i) => <span key={i} className={css.heatDow}>{i % 2 === 1 ? d : ''}</span>)}
+              </div>
+              <div className={css.heat}>{weeks}</div>
+            </div>
           </div>
         </div>
+        {hover !== null && (
+          <div className={css.tip} style={{
+            left: hover.left,
+            top: hover.top,
+            transform: hover.above ? 'translate(-50%, -100%) translateY(-6px)' : 'translate(-50%, 8px)',
+          }}>
+            <div className={css.tipTitle}>{hover.date.getMonth() + 1}{t('monthUnit')}{hover.date.getDate()}{t('dayUnit')}</div>
+            <div className={css.tipRow}><span>Tokens</span><span className={css.grow} /><span className={css.tipVal}>{fmt(hcell?.tokens ?? 0)}</span></div>
+            <div className={css.tipRow}><span>{t('requests')}</span><span className={css.grow} /><span className={css.tipVal}>{hcell?.requests ?? 0}</span></div>
+            <div className={css.tipRow}><span>{t('serInput')} / {t('serOutput')}</span><span className={css.grow} /><span className={css.tipVal}>{(hcell?.input ?? 0).toLocaleString()} / {(hcell?.output ?? 0).toLocaleString()}</span></div>
+            <div className={css.tipRow}><span>{t('serCacheHit')} / {t('serCacheCreate')}</span><span className={css.grow} /><span className={css.tipVal}>{(hcell?.cacheRead ?? 0).toLocaleString()} / {(hcell?.cacheWrite ?? 0).toLocaleString()}</span></div>
+            {hcell?.cost !== null && hcell !== undefined && (
+              <div className={css.tipRow}><span>{t('cost')}</span><span className={css.grow} /><span className={css.tipVal}>¥{hcell.cost.toFixed(2)}</span></div>
+            )}
+            {modelRows.length > 0 && <div className={css.tipDivider} />}
+            {modelRows.map(([key, tokens]) => (
+              <div key={key} className={css.tipRow}>
+                <i className={css.legendDot} style={{ background: colorOf.get(key) ?? '#8b93a1' }} />
+                <span>{key}</span>
+                <span className={css.grow} />
+                <span className={css.tipVal}>{fmt(tokens)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
