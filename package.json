@@ -1,5 +1,5 @@
 {
-  "name": "dsh-usage-stats",
+  "name": "dsh-usage-guard",
   "version": "0.1.0",
   "description": "DSH 用量统计插件：token 采集、日历视图、费用估算、超限守卫",
   "type": "module",

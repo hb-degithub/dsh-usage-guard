@@ -10,10 +10,10 @@ let injectCss = '';
 const cssFile = 'dist/style.css';
 if (existsSync(cssFile)) {
   const css = readFileSync(cssFile, 'utf8');
-  injectCss = 'var __styleTagId = "dsh-usage-stats/Panel.module.css";\n'
+  injectCss = 'var __styleTagId = "dsh-usage-guard/Panel.module.css";\n'
     + 'if (typeof document !== "undefined" && document.querySelector(\'style[data-plugin-css="\' + __styleTagId + \'"]\') === null) {\n'
     + '  var __tag = document.createElement("style");\n'
-    + '  __tag.dataset.plugin = "dsh-usage-stats";\n'
+    + '  __tag.dataset.plugin = "dsh-usage-guard";\n'
     + '  __tag.dataset.pluginCss = __styleTagId;\n'
     + `  __tag.textContent = ${JSON.stringify(css)};\n`
     + '  document.head.appendChild(__tag);\n'
@@ -22,7 +22,7 @@ if (existsSync(cssFile)) {
 
 writeFileSync(
   file,
-  'window.__ModuleLoader__.load({ id: "dsh-usage-stats", factory: (require) => {\n'
+  'window.__ModuleLoader__.load({ id: "dsh-usage-guard", factory: (require) => {\n'
     + 'var module = { exports: {} };\nvar exports = module.exports;\n'
     + injectCss
     + code

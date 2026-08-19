@@ -21,7 +21,7 @@ export function installGuard(ctx, store) {
     if (guard.mode === 'block') {
       const status = guardStatus(store);
       if (status.over) {
-        throw new Error(`dsh-usage-stats: 已超用量上限（${status.reasons.join('；')}），请求已被用量守卫拦截（可在设置 → 用量统计 中调整阈值或切回提醒模式）`);
+        throw new Error(`dsh-usage-guard: 已超用量上限（${status.reasons.join('；')}），请求已被用量守卫拦截（可在设置 → 用量统计 中调整阈值或切回提醒模式）`);
       }
     }
     // 与 cordis 一致按 (request) 调用 next：生产中实参被忽略（原 args 经闭包转发），

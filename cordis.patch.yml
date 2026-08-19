@@ -2,4 +2,4 @@
 # package root export).
 - insert:
     - id: usage-stats
-      name: 'dsh-usage-stats'
+      name: 'dsh-usage-guard'

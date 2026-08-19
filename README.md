@@ -1,4 +1,4 @@
-# dsh-usage-stats
+# dsh-usage-guard
 
 English | [中文](#中文)
 
@@ -17,7 +17,7 @@ Usage statistics panel for [DeepSeek Harness](https://github.com/deepseek-ai) (D
 From the DSH plugin market (Settings → 插件市场), or:
 
 ```sh
-dsh plugin --profile web add dsh-usage-stats   # npm
+dsh plugin --profile web add dsh-usage-guard   # npm
 dsh plugin --profile web add <github-url>      # or from GitHub
 ```
 
@@ -54,7 +54,7 @@ MIT
 插件市场（设置 → 插件市场）一键安装，或：
 
 ```sh
-dsh plugin --profile web add dsh-usage-stats   # npm
+dsh plugin --profile web add dsh-usage-guard   # npm
 dsh plugin --profile web add <github 地址>      # 或从 GitHub
 ```
 
