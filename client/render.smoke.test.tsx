@@ -47,8 +47,9 @@ describe('client SSR smoke (real production data)', () => {
     expect(missing).toEqual([]);
   });
   it('heatmap tooltips cover empty days too (reference behavior)', () => {
-    // 默认按月视图：当月 1 号到今天每格都应有 title 提示
+    // 连续年度视图：每格（含无数据日）都应有 title 提示，今天带高亮描边类
     const tips = [...markup.matchAll(/title="(\d+)月(\d+)日：/g)];
-    expect(tips.length).toBeGreaterThan(10);
+    expect(tips.length).toBeGreaterThan(300);
+    expect(markup).toContain('heatCellToday');
   });
 });

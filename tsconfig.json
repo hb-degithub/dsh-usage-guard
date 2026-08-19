@@ -10,5 +10,6 @@
     "allowImportingTsExtensions": true,
     "types": ["react"]
   },
-  "include": ["client/**/*.ts", "client/**/*.tsx"]
+  "include": ["client/**/*.ts", "client/**/*.tsx"],
+  "exclude": ["client/**/*.test.tsx", "client/**/*.test.ts"]
 }

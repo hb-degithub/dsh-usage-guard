@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DayRow, ModelRow } from './api.ts';
 import css from './Panel.module.css';
 
@@ -16,90 +16,28 @@ const levelColor = (level: number) => level > 0 ? `color-mix(in srgb, var(--dsw-
 const tipOf = (d: Date, cell: DayRow | undefined, fmt: FmtBig, t: T) =>
   `${d.getMonth() + 1}${t('monthUnit')}${d.getDate()}${t('dayUnit')}：${fmt(cell?.tokens ?? 0)} Tokens · ${cell?.requests ?? 0} ${t('turns')}`;
 
-/** 活跃热力图卡片：按月（默认）/按年切换。 */
+/**
+ * 活跃热力图（GitHub 贡献图式单一连续视图）：
+ * 列=周、行=周日~周六；左侧星期标注（一/三/五）、顶部月份标注随网格一起横向滚动；
+ * 默认滚动到最右（最新一天），今天高亮描边，所有格子悬浮显示当日用量。
+ */
 export function HeatmapCard({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig; t: T }) {
-  const [view, setView] = useState<'month' | 'year'>('month');
-  return (
-    <>
-      <div className={css.cardHeadRow}>
-        <h3 className={css.secTitle}>{t('heatmap')}</h3>
-        <span className={css.grow} />
-        <div className={css.pills}>
-          <button className={view === 'month' ? css.pillOn : css.pill} onClick={() => setView('month')}>{t('viewMonth')}</button>
-          <button className={view === 'year' ? css.pillOn : css.pill} onClick={() => setView('year')}>{t('viewYear')}</button>
-        </div>
-      </div>
-      {view === 'month' ? <MonthHeat series={series} fmt={fmt} t={t} /> : <YearHeat series={series} fmt={fmt} t={t} />}
-    </>
-  );
-}
-
-/** 按月视图：月历格子，颜色深度按 tokens，悬浮显示当日用量。 */
-function MonthHeat({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig; t: T }) {
-  const now = new Date();
-  const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const map = new Map(series.map((d) => [d.day, d]));
   const max = Math.max(1, ...series.map((d) => d.tokens));
-  const [y, m] = month.split('-').map(Number);
-  const first = new Date(y, m - 1, 1);
-  const count = new Date(y, m, 0).getDate();
-  const todayK = dayKey(now);
   const monthNames = t('monthNames').split(',');
   const dows = t('weekdays').split(',');
-  const minMonth = series.length > 0 ? series[0].day.slice(0, 7) : month;
-  const shift = (delta: number) => {
-    const d = new Date(y, m - 1 + delta, 1);
-    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  };
-
-  const cells: React.ReactNode[] = [];
-  for (let i = 0; i < first.getDay(); i++) cells.push(<div key={`pad-${i}`} />);
-  for (let day = 1; day <= count; day++) {
-    const d = new Date(y, m - 1, day);
-    const key = dayKey(d);
-    const cell = map.get(key);
-    const level = levelOf(cell?.tokens ?? 0, max);
-    const dark = level >= 3;
-    cells.push(
-      <div key={key} className={css.calCell2} title={tipOf(d, cell, fmt, t)}
-        style={level > 0 ? { background: levelColor(level) } : undefined}>
-        <span className={key === todayK ? css.calDayToday : dark ? css.calDayOn : css.calDay}>{day}</span>
-        {(cell?.tokens ?? 0) > 0 && (
-          <span className={dark ? css.calTokOn : css.calTok}>{fmt(cell!.tokens)}</span>
-        )}
-      </div>,
-    );
-  }
-  return (
-    <div>
-      <div className={css.cardHeadRow}>
-        <button className={css.pill} onClick={() => shift(-1)} disabled={month <= minMonth} aria-label="prev">‹</button>
-        <span className={css.calMonthLabel}>{t('numStyle') === 'cn' ? `${y}${t('yearUnit')}${monthNames[m - 1]}` : `${monthNames[m - 1]} ${y}`}</span>
-        <button className={css.pill} onClick={() => shift(1)} disabled={month >= todayK.slice(0, 7)} aria-label="next">›</button>
-        <span className={css.grow} />
-        <span className={css.heatLegend} style={{ marginTop: 0 }}>
-          <span>{t('less')}</span>
-          {[1, 2, 3, 4].map((l) => <div key={l} className={css.heatCell} style={{ background: levelColor(l) }} />)}
-          <span>{t('more')}</span>
-        </span>
-      </div>
-      <div className={css.calGrid2}>
-        {dows.map((w, i) => <div key={i} className={css.calDow2}>{w}</div>)}
-        {cells}
-      </div>
-    </div>
-  );
-}
-
-/** 按年视图：GitHub 风格周×日格子，顶部月份标注。 */
-function YearHeat({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig; t: T }) {
-  const map = new Map(series.map((d) => [d.day, d]));
-  const max = Math.max(1, ...series.map((d) => d.tokens));
-  const monthNames = t('monthNames').split(',');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayK = dayKey(today);
   const start = new Date(today.getTime() - 363 * 86400_000);
   start.setDate(start.getDate() - start.getDay());
+
+  // 挂载后滚到最右（最新），避免用户手动拖
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el !== null) el.scrollLeft = el.scrollWidth;
+  }, []);
 
   const weeks: React.ReactNode[] = [];
   const labels: string[] = [];
@@ -116,7 +54,8 @@ function YearHeat({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig; t: T }) {
       const cell = map.get(key);
       const level = levelOf(cell?.tokens ?? 0, max);
       cells.push(
-        <div key={key} className={css.heatCell} title={tipOf(d, cell, fmt, t)}
+        <div key={key} className={key === todayK ? `${css.heatCell} ${css.heatCellToday}` : css.heatCell}
+          title={tipOf(d, cell, fmt, t)}
           style={cursor > today ? { visibility: 'hidden' } : level > 0 ? { background: levelColor(level) } : undefined} />,
       );
       cursor.setDate(cursor.getDate() + 1);
@@ -124,19 +63,33 @@ function YearHeat({ series, fmt, t }: { series: DayRow[]; fmt: FmtBig; t: T }) {
     weeks.push(<div key={w++} className={css.heatCol}>{cells}</div>);
   }
   return (
-    <div>
-      <div className={css.heatMonths}>
-        {labels.map((l, i) => <span key={i} className={css.heatMonth}>{l}</span>)}
+    <>
+      <div className={css.cardHeadRow}>
+        <h3 className={css.secTitle}>{t('heatmap')}</h3>
+        <span className={css.grow} />
+        <span className={css.heatLegend} style={{ marginTop: 0 }}>
+          <span>{t('less')}</span>
+          {[0, 1, 2, 3, 4].map((l) => (
+            <div key={l} className={css.heatCell} style={l > 0 ? { background: levelColor(l) } : undefined} />
+          ))}
+          <span>{t('more')}</span>
+        </span>
       </div>
-      <div className={css.heat}>{weeks}</div>
-      <div className={css.heatLegend}>
-        <span>{t('less')}</span>
-        {[0, 1, 2, 3, 4].map((l) => (
-          <div key={l} className={css.heatCell} style={l > 0 ? { background: levelColor(l) } : undefined} />
-        ))}
-        <span>{t('more')}</span>
+      <div className={css.heatScroll} ref={scrollRef}>
+        <div className={css.heatInner}>
+          <div className={css.heatMonths}>
+            <span className={css.heatDowSpacer} />
+            {labels.map((l, i) => <span key={i} className={css.heatMonth}>{l}</span>)}
+          </div>
+          <div className={css.heatRows}>
+            <div className={css.heatDows}>
+              {dows.map((d, i) => <span key={i} className={css.heatDow}>{i % 2 === 1 ? d : ''}</span>)}
+            </div>
+            <div className={css.heat}>{weeks}</div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
