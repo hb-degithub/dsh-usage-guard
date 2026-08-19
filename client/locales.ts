@@ -22,6 +22,10 @@ export const zh: Record<string, string> = {
   empty: '还没有用量数据，去聊一句试试',
   loadFail: '用量数据加载失败',
   providerModel: '提供商 / 模型',
+  add: '添加',
+  remove: '删除',
+  priceKeyInvalid: '格式须为 provider/model',
+  priceKeyDuplicate: '该条目已存在',
   currencyNote: '金额单位取决于各价格条目的 currency；内置 DeepSeek 刊例价以官网为准。',
 };
 
@@ -49,5 +53,9 @@ export const en: Record<string, string> = {
   empty: 'No usage yet — start a conversation',
   loadFail: 'Failed to load usage data',
   providerModel: 'Provider / model',
+  add: 'Add',
+  remove: 'Remove',
+  priceKeyInvalid: 'Must be in provider/model format',
+  priceKeyDuplicate: 'Entry already exists',
   currencyNote: 'Amounts use each price entry’s currency; built-in DeepSeek list prices — check the official page.',
 };

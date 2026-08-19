@@ -5,6 +5,7 @@
 import { createElement as h } from 'react';
 import { zh, en } from './locales.ts';
 import { Panel } from './Panel.tsx';
+import { GuardOverlay } from './GuardOverlay.tsx';
 
 const NS = 'dsh-usage-stats';
 
@@ -36,4 +37,7 @@ export function apply(ctx: UsageClientContext): void {
     locale: NS,
     inject: () => ({ t }),
   }, () => h(Panel, { t })));
+  try {
+    ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'usage-stats-guard', label: () => 'dsh-usage-stats' }, GuardOverlay));
+  } catch { /* 旧宿主无此槽位：仅丢失全局提醒，面板横幅仍在 */ }
 }

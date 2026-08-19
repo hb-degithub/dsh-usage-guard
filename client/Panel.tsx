@@ -10,7 +10,7 @@ const fmtCost = (c: number | null) => c === null ? '—' : `¥${c.toFixed(2)}`;
 export function Panel({ t }: { t: (k: string) => string }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [month, setMonth] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
   const [calendar, setCalendar] = useState<Record<string, { tokens: number; cost: number | null; requests: number }>>({});
   const [error, setError] = useState('');
 
@@ -59,7 +59,11 @@ export function Panel({ t }: { t: (k: string) => string }) {
           </tbody>
         </table>
       </section>
-      <ConfigEditor config={config} t={t} onSaved={setConfig} />
+      <ConfigEditor config={config} t={t} onSaved={(c) => {
+        setConfig(c);
+        fetchSummary().then(setSummary).catch(() => {}); // 价格变更后立即刷新费用
+        fetchCalendar(month).then((r) => setCalendar(r.days)).catch(() => {});
+      }} />
     </div>
   );
 }

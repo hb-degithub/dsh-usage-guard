@@ -12,7 +12,6 @@ export class Collector {
     this.sessionsDir = sessionsDir;
     this.folds = new Map();     // sessionId -> FoldState（内存工作副本）
     this.buffers = new Map();   // sessionId -> event[]（回填前到达的实时事件）
-    this.ready = new Set();     // 已完成回填的 sessionId
     this.backfilled = false;
   }
 
@@ -34,8 +33,8 @@ export class Collector {
   }
 
   /** 实时事件入口：全局回填未完成前先缓冲。
-   *  backfill() 主体完全同步（无 await），事件只可能在其开始前交错到达；
-   *  回填结束后再按 ready 缓冲会让纯实时新会话的事件永远无人冲刷。 */
+   *  backfill() 逐文件处理且每文件让出一次事件循环，期间到达的实时事件进缓冲，
+   *  由该会话 drain 时按 seq 冲刷；applyEvent 的 lastSeq 水位保证不重复计数。 */
   handleEvent(sessionId, event) {
     if (!this.backfilled) {
       const buffer = this.buffers.get(sessionId) ?? [];
@@ -62,18 +61,17 @@ export class Collector {
 
   async backfill() {
     for (const file of listSessionLogs(this.sessionsDir)) {
+      await new Promise((r) => setImmediate(r)); // 让出事件循环，不阻塞实时事件与 HTTP
       const sessionId = file.split(/[\\/]/).slice(-2)[0];
       try {
         this.replayLog(sessionId, readSessionEvents(file));
       } catch {
         // 单个坏日志不阻断整体回填
       }
-      this.ready.add(sessionId);
       this.drain(sessionId);
     }
     // 没有日志的纯实时会话：直接冲刷
     for (const sessionId of [...this.buffers.keys()]) {
-      this.ready.add(sessionId);
       this.drain(sessionId);
     }
     this.backfilled = true;

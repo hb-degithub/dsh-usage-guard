@@ -1,7 +1,5 @@
 import type { DayRow } from './api.ts';
 
-const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-
 /** 近 30 天柱状图：纯 div。 */
 export function BarChart({ series }: { series: DayRow[] }) {
   const max = Math.max(1, ...series.map((d) => d.tokens));

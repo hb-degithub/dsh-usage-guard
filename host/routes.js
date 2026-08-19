@@ -14,7 +14,10 @@ function sendJson(res, status, value) {
 
 async function readBody(req) {
   let text = '';
-  for await (const chunk of req) text += chunk;
+  for await (const chunk of req) {
+    text += chunk;
+    if (text.length > 1_000_000) throw Object.assign(new Error('request body too large'), { statusCode: 413 });
+  }
   return text;
 }
 
@@ -71,7 +74,8 @@ export function mountUsageRoutes(webServer, store) {
         let body;
         try {
           body = JSON.parse(await readBody(req));
-        } catch {
+        } catch (error) {
+          if (error?.statusCode) throw error; // 413 交给外层 catch
           return sendJson(res, 400, { error: 'invalid JSON body' });
         }
         try {
@@ -84,7 +88,7 @@ export function mountUsageRoutes(webServer, store) {
       }
       sendJson(res, 404, { error: 'not found' });
     } catch (error) {
-      sendJson(res, 500, { error: String(error?.message ?? error) });
+      sendJson(res, error.statusCode ?? 500, { error: String(error?.message ?? error) });
     }
   };
   return webServer.register({ kind: 'prefix', path: '/usage-stats/', handler });

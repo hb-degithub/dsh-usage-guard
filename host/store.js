@@ -22,6 +22,7 @@ const defaultConfig = () => ({
 });
 
 const isFiniteNonNegative = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+const isRecord = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function validateConfig(config) {
   if (typeof config !== 'object' || config === null) throw new Error('config must be an object');
@@ -59,11 +60,15 @@ export class Store {
     let parsed;
     try {
       parsed = JSON.parse(raw);
-      if (parsed?.version !== STORE_VERSION || typeof parsed.days !== 'object' || typeof parsed.sessions !== 'object' || typeof parsed.config !== 'object') {
+      if (parsed?.version !== STORE_VERSION || !isRecord(parsed.days) || !isRecord(parsed.sessions) || !isRecord(parsed.config)) {
         throw new Error('unrecognized store shape');
       }
     } catch {
-      copyFileSync(this.path, `${this.path}.corrupt-${Date.now()}`);
+      try {
+        copyFileSync(this.path, `${this.path}.corrupt-${Date.now()}`);
+      } catch {
+        // 备份失败也要继续重置，load() 永不抛错
+      }
       this.data = emptyData();
       this.dirty = false;
       return;
@@ -95,6 +100,7 @@ export class Store {
   }
 
   noteState(sessionId, foldState) {
+    if (this.data.sessions[sessionId] === foldState) return; // applyEvent 对无变化事件返回同一引用
     this.data.sessions[sessionId] = foldState;
     this.dirty = true;
   }

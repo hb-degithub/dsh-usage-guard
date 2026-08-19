@@ -59,6 +59,15 @@ describe('Store', () => {
     expect(readdirSync(dir).some((f) => f.startsWith('usage-stats.json.corrupt-'))).toBe(true);
   });
 
+  it('rejects null/array members in an otherwise valid JSON file', () => {
+    writeFileSync(path, JSON.stringify({ version: 1, days: null, sessions: {}, config: { prices: {}, guard: { dailyTokens: null, dailyCost: null, mode: 'warn' } } }), 'utf8');
+    const s = new Store(path); s.load();
+    expect(s.data.days).toEqual({}); // 重置为空数据
+    expect(s.data.sessions).toEqual({});
+    expect(s.data.config.guard.mode).toBe('warn');
+    expect(readdirSync(dir).some((f) => f.startsWith('usage-stats.json.corrupt-'))).toBe(true); // 有备份
+  });
+
   it('repairs invalid config in a valid-shape file without losing history or backing up', () => {
     const good = {
       version: 1,
