@@ -24,24 +24,40 @@
 
 .card{background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
 .secTitle{font-size:14px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
+.cardHeadRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 
 .empty{color:var(--dsw-alias-label-secondary,#9ca3af);font-size:13px;padding:24px;text-align:center}
 
-/* 活跃热力图（GitHub 风格：列=周，行=周日~周六） */
+/* 活跃热力图（GitHub 风格：列=周，行=周日~周六，顶部月份标注） */
 .heat{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px}
 .heatCol{display:flex;flex-direction:column;gap:3px}
 .heatCell{width:11px;height:11px;border-radius:2.5px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);flex-shrink:0}
+.heatMonths{display:flex;gap:3px;margin-bottom:4px}
+.heatMonth{width:11px;flex-shrink:0;font-size:10px;color:var(--dsw-alias-label-tertiary,#8b93a1);white-space:nowrap;overflow:visible}
 .heatLegend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1);justify-content:flex-end;margin-top:6px}
 
-/* 按天趋势（堆叠柱状） */
+/* 按月视图：月历格子 */
+.calGrid2{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.calDow2{text-align:center;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1);padding:2px 0}
+.calCell2{min-height:48px;border-radius:6px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);padding:5px 6px;display:flex;flex-direction:column;justify-content:space-between}
+.calDay{font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280)}
+.calDayOn{font-size:11px;color:rgba(255,255,255,.95)}
+.calDayToday{font-size:11px;font-weight:700;color:var(--dsw-alias-brand-primary,#4f6ef7)}
+.calTok{font-size:10px;color:var(--dsw-alias-label-tertiary,#8b93a1);font-variant-numeric:tabular-nums;align-self:flex-end}
+.calTokOn{font-size:10px;color:rgba(255,255,255,.85);font-variant-numeric:tabular-nums;align-self:flex-end}
+.calMonthLabel{font-size:13px;font-weight:600;min-width:76px;text-align:center}
+.pill:disabled{opacity:.4;cursor:default}
+
+/* 按天趋势（多序列折线/面积图） */
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .legendItem{display:inline-flex;align-items:center;gap:5px}
 .legendDot{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0}
-.trend{display:flex;align-items:flex-end;gap:2px;height:150px;margin-top:4px}
-.trendCol{flex:1;display:flex;flex-direction:column-reverse;min-width:0;height:100%}
-.seg{width:100%}
-.xlabels{display:flex;margin-top:6px}
-.xlabel{flex:1;font-size:10px;color:var(--dsw-alias-label-tertiary,#8b93a1);text-align:center;overflow:hidden;white-space:nowrap;font-variant-numeric:tabular-nums}
+.legendLine{width:14px;height:3px;border-radius:2px;display:inline-block;flex-shrink:0}
+.trendWrap{position:relative}
+.tip{position:absolute;top:8px;transform:translateX(-50%);z-index:2;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:8px;padding:8px 10px;font-size:11px;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;min-width:160px}
+.tipTitle{font-weight:600;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.tipRow{display:flex;align-items:center;gap:6px;line-height:18px;color:var(--dsw-alias-label-secondary,#6b7280)}
+.tipVal{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary,#1f2328);font-weight:500}
 
 /* 模型用量（环形图 + 明细） */
 .donutWrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap}

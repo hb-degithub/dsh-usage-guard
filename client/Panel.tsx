@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconWarningOutline16 } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { Config, Summary } from './api.ts';
 import { fetchConfig, fetchSummary } from './api.ts';
-import { TrendChart, YearHeatmap, ModelDonut, type FmtBig } from './charts.tsx';
+import { TrendCard, HeatmapCard, ModelDonut, type FmtBig } from './charts.tsx';
 import { ConfigEditor } from './ConfigEditor.tsx';
 import css from './Panel.module.css';
 
@@ -22,7 +22,6 @@ function UsageGlyph({ size = 18 }: { size?: number }) {
 export function Panel({ t }: { t: (k: string) => string }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
-  const [range, setRange] = useState<7 | 30>(30);
   const [error, setError] = useState('');
 
   // 中文大数格式（亿/万），英文用 M/k —— 由 t('numStyle') 决定
@@ -46,7 +45,6 @@ export function Panel({ t }: { t: (k: string) => string }) {
   if (error !== '') return <p className={css.err}>{t('loadFail')}</p>;
   if (!summary || !config) return <p className={css.empty}>…</p>;
 
-  const trendSeries = summary.series.slice(-range);
   const stats = [
     { label: t('tokens'), value: fmtBig(summary.totals.tokens), sub: fmtCost(summary.totals.cost), small: false },
     { label: t('sessions'), value: fmtBig(summary.totals.sessions), sub: '', small: false },
@@ -63,14 +61,6 @@ export function Panel({ t }: { t: (k: string) => string }) {
       <div className={css.head}>
         <UsageGlyph />
         <h2 className={css.title}>{t('nav')}</h2>
-        <span className={css.grow} />
-        <div className={css.pills}>
-          {([7, 30] as const).map((r) => (
-            <button key={r} className={range === r ? css.pillOn : css.pill} onClick={() => setRange(r)}>
-              {r === 7 ? t('range7') : t('range30')}
-            </button>
-          ))}
-        </div>
       </div>
 
       {summary.guard.over && (
@@ -93,13 +83,11 @@ export function Panel({ t }: { t: (k: string) => string }) {
       </div>
 
       <section className={css.card}>
-        <h3 className={css.secTitle}>{t('heatmap')}</h3>
-        <YearHeatmap series={summary.series} fmt={fmtBig} t={t} />
+        <HeatmapCard series={summary.series} fmt={fmtBig} t={t} />
       </section>
 
       <section className={css.card}>
-        <h3 className={css.secTitle}>{t('trend')}</h3>
-        <TrendChart series={trendSeries} models={summary.byModel} fmt={fmtBig} t={t} />
+        <TrendCard series={summary.series} fmt={fmtBig} t={t} />
       </section>
 
       <section className={css.card}>
