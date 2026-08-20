@@ -1,0 +1,47 @@
+# Tag 触发的 npm 自动发布：推送 v* 标签即构建并发布。
+# 认证走 npm Trusted Publishing（GitHub Actions OIDC），免 token、免 2FA；
+# 需在 npmjs.com 包设置里把本仓库+本文件名绑定为 trusted publisher（包首发后配置一次）。
+name: Publish to npm
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC：trusted publishing 必需
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # trusted publishing 要求 npm >= 11.5.1（setup-node 自带的可能较旧）
+      - run: npm install -g npm@latest
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+      # 防呆：tag 版本必须与 package.json 一致（v0.2.0 ↔ 0.2.0）
+      - name: Check tag matches package.json version
+        shell: bash
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::tag $GITHUB_REF_NAME != package.json version $PKG"
+            exit 1
+          fi
+
+      # prepack 会自动跑 pnpm build（tsdown + wrap-client）
+      - run: npm publish --provenance --access public
