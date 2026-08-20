@@ -1,7 +1,23 @@
 {
   "name": "dsh-usage-guard",
   "version": "0.1.0",
-  "description": "DSH 用量统计插件：token 采集、日历视图、费用估算、超限守卫",
+  "description": "DSH 用量统计插件：token 采集、活跃热力图、费用估算、超限守卫",
+  "license": "MIT",
+  "author": "HB <wzdshb@126.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hb-degithub/dsh-usage-guard.git"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "usage",
+    "tokens",
+    "statistics",
+    "cost",
+    "guard"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.19"
