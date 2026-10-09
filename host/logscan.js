@@ -1,13 +1,34 @@
 /**
- * zstd 会话日志扫描：dsh 的 session.jsonl.zstd 是串联帧容器（每次追加一帧）。
- * scanZstdFrames 逐字复制自 @deepseek-ai/dsh-session-persistence-jsonl
- * （lib/index.js 的 lib/types/zstd.js 区段），与官方读取路径保持同一套结构判定。
+ * 会话日志扫描：读取 dsh 的 session 日志并还原为事件数组。
+ *
+ * 文件名随会话格式代次变化（@deepseek-ai/dsh-session-format 的规范命名）：
+ * - v0：`session.jsonl`
+ * - v1+：`session.v<N>.jsonl`（0.2.0 当前代次为 v4）
+ * 压缩后缀由持久化后端决定，默认 zstd：`session.jsonl.zstd` / `session.v4.jsonl.zstd`。
+ * 同一会话目录可能同时存在多个代次（迁移产物），按 dsh 自己的规则取代次最高者。
+ *
+ * zstd 是串联帧容器（每次追加一帧）；scanZstdFrames 逐字复制自
+ * @deepseek-ai/dsh-session-persistence-jsonl 的帧结构判定，与官方读取路径一致。
  */
 import { zstdDecompressSync } from 'node:zlib';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 const ZSTD_MAGIC = 4247762216;
+
+/** 规范日志名：session[.vN].jsonl[.zstd]，N 为不带前导零的正整数（与 dsh 的判定一致）。 */
+const SESSION_LOG_NAME = /^session(?:\.v([1-9][0-9]*))?\.jsonl(\.zstd)?$/;
+
+/**
+ * 解析一个日志文件名。
+ * @param name 目录项名称。
+ * @returns `{ generation, zstd }`；不是规范日志名时返回 undefined。
+ */
+export function parseSessionLogName(name) {
+  const match = SESSION_LOG_NAME.exec(name);
+  if (match === null) return undefined;
+  return { generation: match[1] === undefined ? 0 : Number(match[1]), zstd: match[2] !== undefined };
+}
 
 export function scanZstdFrames(buffer, maxFrames = Number.POSITIVE_INFINITY) {
   const frames = [];
@@ -53,27 +74,53 @@ export function scanZstdFrames(buffer, maxFrames = Number.POSITIVE_INFINITY) {
   return { frames };
 }
 
-/** 解码一个日志的全部完整帧，按行解析 JSON；坏行与缺字段行跳过。 */
-export function readSessionEvents(file) {
+/** 按后缀解码整份日志为文本：zstd 串联帧逐帧解压，纯 jsonl 直接读。 */
+function decodeLogText(file) {
   const buffer = readFileSync(file);
+  if (!file.endsWith('.zstd')) return buffer.toString('utf8');
   const { frames } = scanZstdFrames(buffer);
-  const events = [];
-  for (const f of frames) {
-    const plain = zstdDecompressSync(buffer.subarray(f.start, f.end)).toString('utf8');
-    for (const line of plain.split('\n')) {
-      if (line === '') continue;
-      try {
-        const event = JSON.parse(line);
-        if (typeof event?.type === 'string' && typeof event?.seq === 'number') events.push(event);
-      } catch { /* 坏行跳过 */ }
-    }
-  }
-  return events;
+  let text = '';
+  for (const f of frames) text += zstdDecompressSync(buffer.subarray(f.start, f.end)).toString('utf8');
+  return text;
 }
 
-/** 递归列出 sessions 目录下所有 session.jsonl.zstd。 */
+/**
+ * 读取一个会话日志：一次遍历同时取出会话 id（`session` 头行）与带 seq 的事件。
+ * 坏行与缺字段行跳过；头行（无 seq）不进事件数组。
+ * @param file 日志文件路径。
+ * @returns `{ sessionId, events }`；日志头缺 id 时退回会话目录名。
+ */
+export function readSessionLog(file) {
+  const events = [];
+  let sessionId;
+  for (const line of decodeLogText(file).split('\n')) {
+    if (line === '') continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue; // 坏行跳过
+    }
+    if (sessionId === undefined && event?.type === 'session' && typeof event.id === 'string') sessionId = event.id;
+    if (typeof event?.type === 'string' && typeof event?.seq === 'number') events.push(event);
+  }
+  return { sessionId: sessionId ?? basename(dirname(file)), events };
+}
+
+/** 解码一个日志的全部事件，按行解析 JSON；坏行与缺字段行跳过。 */
+export function readSessionEvents(file) {
+  return readSessionLog(file).events;
+}
+
+/**
+ * 递归列出 sessions 目录下所有会话日志，每个会话目录只保留代次最高的那份
+ * （与 @deepseek-ai/dsh-session-persistence-jsonl 的「取最高规范代次」规则一致）；
+ * 同代次同时存在 zstd 与纯文本时取 zstd。
+ * @param sessionsDir sessions 根目录。
+ * @returns 日志路径数组，按路径排序。
+ */
 export function listSessionLogs(sessionsDir) {
-  const out = [];
+  const best = new Map(); // 目录 -> { path, generation, zstd }
   const walk = (dir) => {
     let entries;
     try {
@@ -89,10 +136,19 @@ export function listSessionLogs(sessionsDir) {
       } catch {
         continue;
       }
-      if (stat.isDirectory()) walk(path);
-      else if (name === 'session.jsonl.zstd') out.push(path);
+      if (stat.isDirectory()) {
+        walk(path);
+        continue;
+      }
+      const parsed = parseSessionLogName(name);
+      if (parsed === undefined) continue;
+      const current = best.get(dir);
+      const better = current === undefined
+        || parsed.generation > current.generation
+        || (parsed.generation === current.generation && parsed.zstd && !current.zstd);
+      if (better) best.set(dir, { path, ...parsed });
     }
   };
   walk(sessionsDir);
-  return out;
+  return [...best.values()].map((entry) => entry.path).sort();
 }

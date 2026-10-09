@@ -4,7 +4,7 @@
  * 该会话回填完成后按 seq 冲刷；applyEvent 的 lastSeq 水位保证不重复计数。
  */
 import { applyEvent } from './fold.js';
-import { readSessionEvents, listSessionLogs } from './logscan.js';
+import { readSessionLog, listSessionLogs } from './logscan.js';
 
 export class Collector {
   constructor(store, sessionsDir) {
@@ -62,9 +62,13 @@ export class Collector {
   async backfill() {
     for (const file of listSessionLogs(this.sessionsDir)) {
       await new Promise((r) => setImmediate(r)); // 让出事件循环，不阻塞实时事件与 HTTP
-      const sessionId = file.split(/[\\/]/).slice(-2)[0];
+      let sessionId = file.split(/[\\/]/).slice(-2)[0]; // 读不出日志头时的兜底键
       try {
-        this.replayLog(sessionId, readSessionEvents(file));
+        // 会话 id 以日志头的 `session` 行为准；它与实时事件的 session.id 同一取值，
+        // 保证回填与实时采集共用同一份折叠水位（老版本目录名可能不带 session- 前缀）。
+        const log = readSessionLog(file);
+        sessionId = log.sessionId;
+        this.replayLog(sessionId, log.events);
       } catch {
         // 单个坏日志不阻断整体回填
       }

@@ -1,7 +1,12 @@
 /**
  * 用量折叠纯函数：把会话事件流折叠成 (日期, 提供商, 模型) 维度的用量增量。
- * 替换语义与 @deepseek-ai/dsh-token-meter 的 tokenUsage 投影一致：
- * 同 (turn,step) 的后发样本替换先前样本，不同 (turn,step) 累加。
+ *
+ * 替换语义与 @deepseek-ai/dsh-token-meter 的 tokenUsage 投影（0.2.0：stateVersion 2）一致：
+ * - 采样载体：`assistant/message` 的 `data.usage`；`assistant/message` / `assistant/attempt`
+ *   的 `data.stream` 里最后一条 usage chunk；旧格式（v3 及更早）的 `assistant/chunk` 事件。
+ * - 同 (turn,step) 的后发样本替换先前样本（只记差值），不同 (turn,step) 全额累加。
+ * - `llm/retry-started` 关闭同 (turn,step) 的替换槽：重试也是真实发出的请求，
+ *   其用量要与上一次尝试累加而不是互相替换。
  */
 
 export const zeroBuckets = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 0 });
@@ -27,20 +32,39 @@ const bucketsFromUsage = (usage) => ({
   cacheWrite: usage.cacheWriteTokens ?? 0,
 });
 
+/**
+ * 一次助手结算的流里最后一条 usage chunk（与 @deepseek-ai/dsh-llm 的
+ * lastAssistantStreamChunk(stream, 'usage') 同一判定：倒序取第一条
+ * `{ type:'chunk', chunk:{ type:'usage' } }`，usage 挂在 chunk 上）。
+ */
+export function lastStreamUsage(stream) {
+  if (!Array.isArray(stream)) return undefined;
+  for (let i = stream.length - 1; i >= 0; i -= 1) {
+    const record = stream[i];
+    if (record?.type === 'chunk' && record.chunk?.type === 'usage') return record.chunk.usage;
+  }
+  return undefined;
+}
+
 /** 提取事件携带的 (turn, step, usage)，非用量事件返回 undefined。 */
 const usageOfEvent = (event) => {
-  if (event.type === 'assistant/chunk' && event.data?.chunk?.type === 'usage') {
-    return { turn: event.data.turn, step: event.data.step, usage: event.data.chunk.usage };
+  const data = event.data;
+  if (event.type === 'assistant/chunk' && data?.chunk?.type === 'usage') {
+    return { turn: data.turn, step: data.step, usage: data.chunk.usage };
   }
-  if (event.type === 'assistant/message' && event.data?.usage !== undefined) {
-    return { turn: event.data.turn, step: event.data.step, usage: event.data.usage };
+  if (event.type === 'assistant/message' && data?.usage !== undefined) {
+    return { turn: data.turn, step: data.step, usage: data.usage };
+  }
+  if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+    const usage = lastStreamUsage(data?.stream);
+    if (usage !== undefined) return { turn: data.turn, step: data.step, usage };
   }
   return undefined;
 };
 
 /**
  * 折叠一个事件。返回 { state, delta }；delta 为 null 表示无用量变化。
- * seq <= state.lastSeq 的事件是重放：usage 不再记账，request/header 仍更新归属
+ * seq <= state.lastSeq 的事件是重放：用量与替换槽都不再变更，request/header 仍更新归属
  * （回填从持久化水位恢复时，水位之后的替换结算需要水位之前的归属信息）。
  */
 export function applyEvent(state, event) {
@@ -54,6 +78,13 @@ export function applyEvent(state, event) {
     };
     if (event.seq > state.lastSeq) next.lastSeq = event.seq;
     return { state: next, delta: null };
+  }
+  if (event.type === 'llm/retry-started') {
+    if (event.seq <= state.lastSeq) return { state, delta: null };
+    const sameStep = state.last !== null && state.last.turn === event.data?.turn && state.last.step === event.data?.step;
+    if (!sameStep) return { state, delta: null };
+    // 关闭替换槽并推进水位：重试后同 (turn,step) 的下一次采样按新请求全额累加
+    return { state: { ...state, last: null, lastSeq: event.seq }, delta: null };
   }
   if (event.seq <= state.lastSeq) return { state, delta: null };
   const found = usageOfEvent(event);
