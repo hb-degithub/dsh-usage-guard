@@ -22,6 +22,7 @@
   "engines": {
     "node": ">=22.19"
   },
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
     "test": "vitest run",
     "build": "tsdown && node scripts/wrap-client.mjs",
