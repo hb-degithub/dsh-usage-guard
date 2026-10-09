@@ -24,6 +24,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          # trusted publishing 认这个 .npmrc 里的 registry；不写时 npm 直接报
+          # ENEEDAUTH（"need auth ... run npm login"），根本不会去换 OIDC 身份。
+          registry-url: https://registry.npmjs.org
 
       # trusted publishing 要求 npm >= 11.5.1（setup-node 自带的可能较旧）
       - run: npm install -g npm@latest
