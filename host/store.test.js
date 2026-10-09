@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Store } from './store.js';
+import { Store, STORE_VERSION } from './store.js';
 import { DEFAULT_PRICES, costOf, priceKey } from './pricing.js';
 import { initFold, keyOf } from './fold.js';
 
@@ -15,7 +15,7 @@ const delta = (over = {}) => ({ day: '2026-08-17', provider: 'zijian', model: 'k
 describe('Store', () => {
   it('starts empty with default prices and warn guard', () => {
     const s = new Store(path); s.load();
-    expect(s.data.version).toBe(1);
+    expect(s.data.version).toBe(STORE_VERSION);
     expect(s.data.days).toEqual({});
     expect(s.data.config.guard.mode).toBe('warn');
     expect(s.data.config.prices[priceKey('deepseek', 'deepseek-chat')]).toBeDefined();
@@ -48,7 +48,7 @@ describe('Store', () => {
     s.flush();
     expect(existsSync(path)).toBe(true);
     const raw = JSON.parse(readFileSync(path, 'utf8'));
-    expect(raw.version).toBe(1);
+    expect(raw.version).toBe(STORE_VERSION);
     expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]); // tmp 已 rename
   });
 
@@ -70,7 +70,7 @@ describe('Store', () => {
 
   it('repairs invalid config in a valid-shape file without losing history or backing up', () => {
     const good = {
-      version: 1,
+      version: STORE_VERSION,
       days: { '2026-08-17|zijian|kimi-k3': { input: 10, output: 5, cacheRead: 1, cacheWrite: 0, requests: 1 } },
       sessions: { 'session-a': initFold() },
       config: { prices: structuredClone(DEFAULT_PRICES), guard: { dailyTokens: null, dailyCost: null, mode: 'bogus' } },
@@ -87,6 +87,44 @@ describe('Store', () => {
     const raw = JSON.parse(readFileSync(path, 'utf8'));
     expect(raw.config.guard.mode).toBe('warn');
     expect(raw.days).toEqual(good.days);
+  });
+
+  it('migrates a v1 store by re-folding: clears derived days and watermarks, keeps the user config', () => {
+    // v1 的 days 与 sessions 水位互相矛盾（旧版本漏记了大部分样本，水位却已推到日志末尾），
+    // 不能在原数据上续跑，只能整表重折。
+    const v1Config = { prices: { 'a/b': { input: 3, output: 4, cacheRead: 0, cacheWrite: 0, currency: 'CNY' } }, guard: { dailyTokens: 42, dailyCost: 7, mode: 'block' } };
+    writeFileSync(path, JSON.stringify({
+      version: 1,
+      days: { '2026-08-17|zijian|kimi-k3': { input: 10, output: 5, cacheRead: 1, cacheWrite: 0, requests: 1 } },
+      sessions: { 'session-a': { provider: 'zijian', model: 'kimi-k3', last: null, lastSeq: 99999 } },
+      config: v1Config,
+    }), 'utf8');
+    const s = new Store(path); s.load();
+    expect(s.data.version).toBe(STORE_VERSION);
+    expect(s.data.days).toEqual({}); // 交给随后的 backfill 按日志重建
+    expect(s.data.sessions).toEqual({}); // 水位必须一起清，否则续跑补不回漏记的部分
+    expect(s.data.config).toEqual(v1Config); // 价格/守卫是用户数据，保留
+    expect(readdirSync(dir).some((f) => f.startsWith('usage-stats.json.corrupt-'))).toBe(false); // 不是损坏，不备份
+    s.flush();
+    expect(JSON.parse(readFileSync(path, 'utf8')).version).toBe(STORE_VERSION);
+    // 迁移只发生一次：重折后的数据不会被下一次 load 再清掉
+    const s2 = new Store(path); s2.load();
+    s2.recordDelta('session-b', delta(), initFold());
+    s2.flush();
+    const s3 = new Store(path); s3.load();
+    expect(s3.data.days[keyOf('2026-08-17', 'zijian', 'kimi-k3')].input).toBe(10);
+  });
+
+  it('backs up and resets a store written by a newer plugin version', () => {
+    writeFileSync(path, JSON.stringify({
+      version: STORE_VERSION + 1,
+      days: {},
+      sessions: {},
+      config: { prices: {}, guard: { dailyTokens: null, dailyCost: null, mode: 'warn' } },
+    }), 'utf8');
+    const s = new Store(path); s.load();
+    expect(s.data.version).toBe(STORE_VERSION);
+    expect(readdirSync(dir).some((f) => f.startsWith('usage-stats.json.corrupt-'))).toBe(true);
   });
 
   it('does not share nested price objects with DEFAULT_PRICES', () => {

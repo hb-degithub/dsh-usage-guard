@@ -1,13 +1,18 @@
 /**
  * 聚合存储：days 按 (日期|提供商|模型) 累计；sessions 持久化每个会话的折叠水位，
  * 使重启后的回填与实时采集都不重复计数。原子写；损坏自动备份重置。
+ *
+ * 不变量（改动前务必确认）：days 必须等于「按 sessions 里的水位续跑当前日志」的结果。
+ * 一旦两者不一致，days 无法逐会话修正（只按 天×提供商×模型 聚合，追不回某个会话的贡献），
+ * 唯一可靠的修法是整表重折 —— 即 bump STORE_VERSION 并加一条迁移。
  */
 import { readFileSync, writeFileSync, renameSync, copyFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { zeroBuckets, keyOf, initFold } from './fold.js';
 import { DEFAULT_PRICES } from './pricing.js';
 
-export const STORE_VERSION = 1;
+/** 2：0.1.1 起一次性重折（见 migrate 注释）；1 及更早的 days 与 sessions 水位互相矛盾。 */
+export const STORE_VERSION = 2;
 
 const emptyData = () => ({
   version: STORE_VERSION,
@@ -58,12 +63,17 @@ export class Store {
       return; // 首次运行：文件不存在
     }
     let parsed;
+    let shape = 'ok';
     try {
       parsed = JSON.parse(raw);
-      if (parsed?.version !== STORE_VERSION || !isRecord(parsed.days) || !isRecord(parsed.sessions) || !isRecord(parsed.config)) {
-        throw new Error('unrecognized store shape');
-      }
+      if (!isRecord(parsed) || !isRecord(parsed.days) || !isRecord(parsed.sessions) || !isRecord(parsed.config)) throw new Error('unrecognized store shape');
+      if (typeof parsed.version !== 'number') throw new Error('unrecognized store shape');
+      if (parsed.version > STORE_VERSION) throw new Error('store written by a newer plugin version');
+      if (parsed.version < STORE_VERSION) shape = 'migrate';
     } catch {
+      shape = 'corrupt';
+    }
+    if (shape === 'corrupt') {
       try {
         copyFileSync(this.path, `${this.path}.corrupt-${Date.now()}`);
       } catch {
@@ -73,17 +83,24 @@ export class Store {
       this.dirty = false;
       return;
     }
+    if (shape === 'migrate') {
+      // 一次性重折：v1 的 days 与 sessions 水位互相矛盾（旧版本漏记了大部分样本，水位却已推到
+      // 日志末尾 → 续跑永远补不回来。实测本机 days 只有日志全量重折的约 1/8）。days 与 sessions
+      // 都由日志推导，一起清空让随后的 backfill 按当前日志重建；config（价格/守卫）保留。
+      // 注意：日志已被删除的会话，其历史用量随之从统计里消失——这是无法避免的，聚合桶追不回来源。
+      this.data = { ...emptyData(), config: parsed.config };
+      this.dirty = true;
+    } else {
+      this.data = parsed;
+    }
     // 形状正确但 config 非法（多为手改配置）：仅替换 config 为默认值，保留历史数据，不备份、不抛错；
     // 标记 dirty，让下一次 flush 把修复后的文件落盘
-    let repaired = false;
     try {
-      validateConfig(parsed.config);
+      validateConfig(this.data.config);
     } catch {
-      parsed.config = defaultConfig();
-      repaired = true;
+      this.data.config = defaultConfig();
+      this.dirty = true;
     }
-    this.data = parsed;
-    this.dirty = repaired;
   }
 
   recordDelta(sessionId, delta, foldState) {

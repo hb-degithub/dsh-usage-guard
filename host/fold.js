@@ -3,7 +3,9 @@
  *
  * 替换语义与 @deepseek-ai/dsh-token-meter 的 tokenUsage 投影（0.2.0：stateVersion 2）一致：
  * - 采样载体：`assistant/message` 的 `data.usage`；`assistant/message` / `assistant/attempt`
- *   的 `data.stream` 里最后一条 usage chunk；旧格式（v3 及更早）的 `assistant/chunk` 事件。
+ *   的 `data.stream` 里最后一条 usage chunk；旧格式（v3 及更早）的 `assistant/chunk` 事件
+ *   —— 最后这条是**有意的兼容超集**：0.2.0 的宿主只认 message/attempt，但更早的日志里
+ *   「崩在某步中途、只有 chunk 采样没有 message 结算」的用量也要算进来。
  * - 同 (turn,step) 的后发样本替换先前样本（只记差值），不同 (turn,step) 全额累加。
  * - `llm/retry-started` 关闭同 (turn,step) 的替换槽：重试也是真实发出的请求，
  *   其用量要与上一次尝试累加而不是互相替换。

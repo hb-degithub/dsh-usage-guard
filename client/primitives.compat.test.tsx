@@ -13,6 +13,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
@@ -23,6 +25,18 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   /** 与宿主同形的 Input：forwardRef + 属性透传。 */
   Input: ({ className, ...rest }: Record<string, unknown>) => h('input', { className, ...rest }),
 }));
+
+/**
+ * 宿主**真实安装的** Button 样式表里定义了哪些类名。
+ * Button 的 variant/size 就是 className 查表（`clsx(css.button, css[variant], css[size])`），
+ * 所以类名是否存在就是「宿主认不认这个 variant/size」的硬证据——宿主要是删了 .outline，
+ * 面板会静默渲染成一个没有描边的按钮，而不是报错。
+ */
+function hostButtonClasses(): Set<string> {
+  const manifest = createRequire(import.meta.url).resolve('@deepseek-ai/dsh-client-ui-primitives/package.json');
+  const css = readFileSync(join(dirname(manifest), 'lib', 'Button.module.css'), 'utf8');
+  return new Set([...css.matchAll(/\.([a-zA-Z][\w]*)\s*[{:,]/g)].map((m) => m[1]));
+}
 
 const { Panel } = await import('./Panel.tsx');
 const { GuardOverlay } = await import('./GuardOverlay.tsx');
@@ -37,6 +51,14 @@ const config = {
 };
 
 describe('client ↔ host ui-primitives contract', () => {
+  it('the installed host stylesheet still defines every Button variant/size the panel uses', () => {
+    const classes = hostButtonClasses();
+    expect(classes.size).toBeGreaterThan(0); // 样式表读到了（路径/打包形态没变）
+    for (const name of ['ghost', 'outline', 'primary', 'toolbar', 'md', 'sm']) {
+      expect(classes.has(name), `host Button.module.css no longer defines .${name}`).toBe(true);
+    }
+  });
+
   it('renders the panel shell, guard overlay and config editor without crashing', () => {
     const html = renderToStaticMarkup(h('div', null, h(Panel, { t }), h(GuardOverlay, { t })));
     expect(html.length).toBeGreaterThan(0);
@@ -45,16 +67,16 @@ describe('client ↔ host ui-primitives contract', () => {
     expect(html).not.toContain('class="undefined"');
   });
 
-  it('passes only host-known Button variants/sizes and Input passthrough props', () => {
+  it('every variant/size the editor actually passes exists in the host stylesheet', () => {
     const html = renderToStaticMarkup(h(ConfigEditor, { config, t, onSaved: () => {} }));
     expect(html).toContain('zijian/kimi-k3');
     expect(html).toContain('<input');
-    // outline/sm（删除、添加）与 primary/sm（保存）都必须落在宿主已定义的类名上
-    expect(html).toContain('outline sm');
-    expect(html).toContain('primary sm');
-    for (const variant of [...html.matchAll(/class="(ghost|outline|primary|toolbar) (md|sm)"/g)]) {
-      expect(['ghost', 'outline', 'primary', 'toolbar']).toContain(variant[1]);
-      expect(['md', 'sm']).toContain(variant[2]);
+    const classes = hostButtonClasses();
+    const passed = [...html.matchAll(/class="([a-z]+) (md|sm)"/g)];
+    expect(passed.length).toBeGreaterThan(0); // 真的渲染出了带 variant/size 的按钮
+    for (const [, variant, size] of passed) {
+      expect(classes.has(variant), `host stylesheet lacks .${variant}`).toBe(true);
+      expect(classes.has(size), `host stylesheet lacks .${size}`).toBe(true);
     }
   });
 

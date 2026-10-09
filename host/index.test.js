@@ -90,8 +90,11 @@ async function waitUntil(predicate, timeoutMs = 5000) {
   }
 }
 
+/** 让 fire-and-forget 的回填跑完（空 sessions 目录只需要几个 tick）。 */
+const settle = () => new Promise((r) => setTimeout(r, 50));
+
 describe('host entry (apply)', () => {
-  it('declares the webServer dependency and mounts the /usage-stats prefix route', () => {
+  it('declares the webServer dependency and mounts the /usage-stats prefix route', async () => {
     expect(plugin.name).toBe('dsh-usage-guard');
     expect(plugin.inject).toEqual(['webServer']);
     const { ctx, routes, effects } = fakeCtx();
@@ -100,6 +103,9 @@ describe('host entry (apply)', () => {
     expect(routes[0].kind).toBe('prefix');
     expect(routes[0].path).toBe('/usage-stats');
     expect(effects.map((e) => e.label)).toContain('dsh-usage-guard: teardown');
+    // apply() 里的 backfill 是 fire-and-forget：先让它跑完再拆，否则 afterEach 删掉目录后
+    // 它结束时的 flush 又会 mkdir 出来，%TEMP% 里攒一堆残留目录。
+    await settle();
     effects.forEach((e) => e.callback()());
   });
 

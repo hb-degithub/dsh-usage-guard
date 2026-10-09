@@ -38,7 +38,8 @@ const code = readFileSync('dist/client.js', 'utf8');
 
 /* ---------- 形态 ---------- */
 check(code.startsWith('window.__ModuleLoader__.load({ id: "dsh-usage-guard", factory: (require) => {'), 'bundle registers window.__ModuleLoader__.load with the package id');
-const requires = [...new Set([...code.matchAll(/require\("([^"]+)"\)/g)].map((m) => m[1]))];
+const requires = [...new Set([...code.matchAll(/require\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
+check(requires.length > 0, `the bundle actually calls require() (found ${requires.length} specifier(s))`);
 console.log(`     require() specifiers: ${requires.join(', ')}`);
 for (const specifier of requires) {
   check(SEED.has(specifier) || specifier.startsWith('dsh-usage-guard'), `require("${specifier}") resolves from the host module table`);
@@ -104,7 +105,8 @@ const overlay = registrations.find((r) => r.meta.name === 'shell.overlay');
 check(section?.meta.id === 'usage-stats', 'registers the settings.section entry id "usage-stats"');
 check(section?.meta.locale === 'dsh-usage-guard' && typeof section?.meta.label === 'function', 'section carries its locale namespace and a label thunk');
 check(overlay !== undefined, 'registers the shell.overlay entry');
-check(Array.isArray(exports.inject) && exports.inject.join() === 'slots,locale,theme', `client inject face is ${JSON.stringify(exports.inject)}`);
+check(overlay?.meta.locale === 'dsh-usage-guard', 'overlay carries the locale namespace so the banner follows language changes');
+check(Array.isArray(exports.inject) && exports.inject.join() === 'slots,locale', `client inject face is ${JSON.stringify(exports.inject)}`);
 
 const markup = renderToStaticMarkup(h(section.component));
 check(markup.length > 0 && !markup.includes('undefined'), 'section component renders with the host-shaped primitives');

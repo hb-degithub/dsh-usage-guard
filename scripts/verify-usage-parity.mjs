@@ -1,9 +1,14 @@
 /**
- * 口径对拍：把插件的新折叠规则与宿主 @deepseek-ai/dsh-token-meter 的
- * tokenUsage 投影（0.2.0，stateVersion 2）在**真实会话日志**上逐一比较，
- * 并顺带给出「适配前旧规则」的同场数据，量化差异。
+ * 口径对拍：把插件的折叠规则与宿主 @deepseek-ai/dsh-token-meter 的 tokenUsage 投影
+ * （0.2.0，stateVersion 2）在**真实会话日志**上逐一比较，并顺带给出「适配前旧规则」的同场数据。
  *
- * 参考实现按 app.asar 里抽取的 dsh-token-meter 源码转写（规则小结）：
+ * 参照实现是**逐行转写**，不是 import 包本体：dsh-token-meter 是一个 cordis 插件，
+ * 只存在于宿主自己的 app.asar 依赖树里（node_modules 里没有它，投影定义也不是公开导出），
+ * 所以这里把它的纯投影逻辑抄了一份。转写对象与核对方式：
+ *   <安装目录>/resources/app.asar → dsh/node_modules/@deepseek-ai/dsh-token-meter/lib/index.js
+ *   （tokenUsageProjectionDefinition，stateVersion 2；usageOf / bucketsFrom / addReplacing）
+ * 抄件与宿主存在共同误读的风险无法靠这个脚本自身排除——它排除的是「我们的折叠与这份语义不一致」。
+ * 规则小结：
  * - 采样：assistant/message 的 data.usage，否则取该事件（或 assistant/attempt）
  *   data.stream 里最后一条 usage chunk；
  * - 同 (turn,step) 的后发样本替换先前样本，不同 (turn,step) 累加；

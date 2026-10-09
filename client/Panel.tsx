@@ -37,7 +37,8 @@ export function Panel({ t }: { t: (k: string) => string }) {
   const stats = [
     { label: t('tokens'), value: fmtBig(summary.totals.tokens), sub: fmtCost(summary.totals.cost), small: false },
     { label: t('sessions'), value: fmtBig(summary.totals.sessions), sub: '', small: false },
-    { label: t('messages'), value: fmtBig(summary.totals.requests), sub: '', small: false },
+    // requests 记的是「请求次数」：同一步重试后会计入第二次，不再等同于助手消息条数
+    { label: t('requests'), value: fmtBig(summary.totals.requests), sub: '', small: false },
     { label: t('activeDays'), value: String(summary.activeDays), sub: '', small: false },
     { label: t('streak'), value: String(summary.currentStreak), sub: '', small: false },
     summary.topModel !== null

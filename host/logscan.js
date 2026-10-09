@@ -114,13 +114,14 @@ export function readSessionEvents(file) {
 
 /**
  * 递归列出 sessions 目录下所有会话日志，每个会话目录只保留代次最高的那份
- * （与 @deepseek-ai/dsh-session-persistence-jsonl 的「取最高规范代次」规则一致）；
- * 同代次同时存在 zstd 与纯文本时取 zstd。
+ * （与 @deepseek-ai/dsh-session-persistence-jsonl 的「取最高规范代次」规则一致）。
+ * 同代次并存时取「最近被写过」的那份：改了压缩方式（zstd ↔ none）后旧文件会留着，
+ * 固定按后缀偏好可能一直读旧文件、新用量永远不入账；同等 mtime 时再偏好 zstd。
  * @param sessionsDir sessions 根目录。
  * @returns 日志路径数组，按路径排序。
  */
 export function listSessionLogs(sessionsDir) {
-  const best = new Map(); // 目录 -> { path, generation, zstd }
+  const best = new Map(); // 目录 -> { path, generation, mtimeMs, zstd }
   const walk = (dir) => {
     let entries;
     try {
@@ -145,8 +146,11 @@ export function listSessionLogs(sessionsDir) {
       const current = best.get(dir);
       const better = current === undefined
         || parsed.generation > current.generation
-        || (parsed.generation === current.generation && parsed.zstd && !current.zstd);
-      if (better) best.set(dir, { path, ...parsed });
+        || (parsed.generation === current.generation && (
+          stat.mtimeMs > current.mtimeMs
+          || (stat.mtimeMs === current.mtimeMs && parsed.zstd && !current.zstd)
+        ));
+      if (better) best.set(dir, { path, mtimeMs: stat.mtimeMs, ...parsed });
     }
   };
   walk(sessionsDir);
