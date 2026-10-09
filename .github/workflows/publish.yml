@@ -47,4 +47,8 @@ jobs:
           fi
 
       # prepack 会自动跑 pnpm build（tsdown + wrap-client）
+      # 认证优先走 OIDC（trusted publishing）；仓库里配了 NPM_TOKEN secret 时它会被带上，
+      # 作为 OIDC 没配好时的备用通道（secret 不存在则为空，不影响 OIDC）。
       - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
